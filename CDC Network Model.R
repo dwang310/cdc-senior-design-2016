@@ -1,5 +1,5 @@
 library("EpiModel")
-
+library(d3Network)
 
 #### INPUTS #####
 #parameters 
@@ -75,12 +75,13 @@ diagnositcs <- netdx(modelFit, nsims = 10, nsteps =100)
 # might need to add prevalance here
 param <- param.net(inf.prob = infProb, act.rate = actRate, inter.start = 50,inter.eff = intRate)
 init <- init.net(i.num = initInfected, status.rand = TRUE)
-control <- control.net(type = "SI", nsteps = 500, nsims = 10)
+control <- control.net(type = "SI", nsteps = 50, nsims = 10)
 sim <- netsim(modelFit, param, init, control)
+data <- head(as.data.frame(sim))
 
 # plot(sim)
-par(mfrow = c(1,2), mar = c(0,0,1,0))
-plot(sim, type = "network", at = 1, col.status = TRUE,
-     main = "Prevalence at t1")
-plot(sim, type = "network", at = 500, col.status = TRUE,
-     main = "Prevalence at t500")
+#par(mfrow = c(1,2), mar = c(0,0,1,0))
+#plot(sim, type = "network", at = 1, col.status = TRUE,
+#     main = "Prevalence at t1")
+#plot(sim, type = "network", at = 500, col.status = TRUE,
+#     main = "Prevalence at t500")
