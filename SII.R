@@ -2,6 +2,9 @@
 library("EpiModel")
 
 #parameters 
+
+#total number of nodes on prep
+prep_number <- 50
 #total number of nodes in network
 networkSize <- 196 
 #percent of nodes that are males
@@ -23,14 +26,13 @@ acuteProb <- 0.72
 stableProb <- 0.06
 transitRate <-1/84 ##12 weeks of acute phase
 #average number of transmissible acts per partnership per unit of time
-actRate <- 2
+actRate <- 10
 ##MADE UP
 acuteProb <- 0.1
 stableProb <- 0.04
 transitRate <-0.01
 #average number of transmissible acts per partnership per unit of time
 ##MADE UP
-actRate <- 3
 #initial number of nodes infected
 initAcute <- 5
 initStable <- 10
@@ -48,7 +50,7 @@ avgEdges <- (networkSize*avgDegree)/2
 infect <- function (dat,at) {  ##dat = data, at = at timestamp
   active <- dat$attr$active  #access attributes for people who are active (not dead).
   status <- dat$attr$status  #status will compartmentalize nodes in S, I1, I2, I3
-  status <- dat$attr$status  #status will compartmentalize nodes in S, I1, I2
+  prep_status <- dat$attr$prep_status
   nw <- dat$nw  #network
   
   idsSus <- which(active == 1 & status == "s") #people who are active and status S
@@ -68,6 +70,9 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
    ##Epimodel gives a vector of edges of people in acute phase, susceptible phase
    ##dat = data, at = at timestamp
     del <- discord_edgelist(dat, idsInf1, idsSus, at)
+    print("this is edgelist between id1 and sus")
+    print(del)
+    #print(del$sus)
     if (!(is.null(del))) {
       del$transProb <- dat$param$inf.probAcute #transmission probability
       del$actRate <- dat$param$act.rate #acute phase rate
@@ -86,6 +91,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   ##identify the dyads between susceptible and stable phase patients
   if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {   #nodes that are infected from the stable phase
     del1 <- discord_edgelist(dat, idsInf2, idsSus, at)
+    print("this is edgelist between id2 and sus")
+    print(del1)
     if (!(is.null(del1))) {
       del1$transProb <- dat$param$inf.probStable
       del1$actRate <- dat$param$act.rate
@@ -105,17 +112,14 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   ##update summary statistics
   if (at == 2) { ##time starts at 2
     dat$epi$si.flow <- c(0, nInf1+nInf2) #nInf1 is acute, nInf1 is susceptible
-    #dat$epi$si1.flow <- c(0, nInf1)
-    #dat$epi$i1i2.flow <- c(0,nInf2)
+    dat$epi$si1.flow <- c(0, nInf1)
+    dat$epi$i1i2.flow <- c(0,nInf2)
   }
   else {
     dat$epi$si.flow[at] <- nInf1+nInf2
-    # dat$epi$si1.flow[at] <- nInf1
-    # dat$epi$i1i2.flow[at] <- nInf2
+    dat$epi$si1.flow[at] <- nInf1
+    dat$epi$i1i2.flow[at] <- nInf2
     dat$epi$si.flow <- c(0, nInf1+nInf2) #nInf is acute, nInf1 is susceptible
-  }
-  else {
-    dat$epi$si.flow[at] <- nInf1+nInf2
   }
   dat$nw <- nw
   return(dat)
@@ -237,6 +241,10 @@ nw <- set.vertex.attribute(nw, "Income", sample(c(0,1),size=networkSize,
 nw <- set.vertex.attribute(nw, "Incarceration", sample(c(0,1),size=networkSize,
                                                        prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
 
+#sets prep attribute for nodes
+nw <- set.vertex.attribute(nw,"prep_status",sample(c(0,1),size=networkSize,
+                                            prob=c(1-prep_number/networkSize,prep_number/networkSize),replace=TRUE))
+
 #formation formula
 formation <- ~edges
 
@@ -254,7 +262,9 @@ est <- netest(nw, formation, target.stats, coef.diss)
 ##Simulations for models
 
 ## ----ExtEx2-params-------------------------------------------------------
-param <- param.net(inf.probAcute = acuteProb, inf.probStable = stableProb, act.rate = actRate, i1i2.rate = transitRate)
+param <- param.net(inf.probAcute = acuteProb, inf.probStable = stableProb, 
+                   prep_efficacy = 0.95,
+                   act.rate = actRate, i1i2.rate = transitRate)
 
 init <- init.net(i.num = initAcute,i2.num = initStable, status.rand = FALSE)
 
