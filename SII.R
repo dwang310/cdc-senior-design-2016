@@ -32,8 +32,6 @@ deg35 <- 1
 deg47 <- 1 
 deg50 <- 1 
 deg55 <- 1
-avgdeg <- 3.05
-degpop <- 68859.51
 #calculated parameters 
 edges <- 840
 #dissolution
@@ -74,7 +72,7 @@ percentIncarcerated <- 0.542
 #probability of infection per transmissible act in acute phase
 acuteProb <- 1
 #probability of infection per transmissible act in chronic phase
-stableProb <- 0.5
+stableProb <- 0.12
 #transition rate from acute to chronic 
 transitRate <- 1/21 ##12 weeks of acute phase
 #average number of transmissible acts per partnership per unit of time
@@ -85,7 +83,7 @@ actRate <- 2
 #initial number of nodes infected acute
 initAcute <- 0
 #initial number of nodes infected chronic
-initStable <- 100
+initStable <- 10
 
 
 #determine which intervention strategy to be implemented
@@ -110,7 +108,6 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   ids_sus <- which(active == 1 & status == "s")
   idsInf1 <- which(active == 1 & status == "i") #people who are active and status I1
   idsInf2 <- which(active == 1 & status == "i2") #people who are active and status I2
-  
   
   ##ids of people with intervention implemented
   ids_sus_prep <- which(active == 1 & status == "s" & prep_status == 1) #people who are active and status S
@@ -150,20 +147,59 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       }
     }
     if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
-      del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
-      print(del10)
-      if (!(is.null(del10))) {
-        del10$trans_probability_sus_i2 <- dat$param$inf.probStable
-        print(dat$param$inf.probStable)
-        del10$act_rate <- dat$param$act.rate
-        del10$final_probability_sus_i2 <- 1 - (1 - del10$trans_probability_sus_i2)^del10$act_rate #final transmission prob, using binomial prob
-        transmit_sus_i2 <- rbinom(nrow(del10),1,del10$final_probability_sus_i2) #trasmit rate is a binary variable
-        del10 <- del10[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
-        ids_newInf2_sus <- unique(del10$sus)
-        num_newInf2_sus <- length(ids_newInf2_sus)
-        if (num_newInf2_sus > 0) {
-          dat$attr$status[ids_newInf2_sus] <- "i" #status is active
-          dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+      #del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
+      edges <- as.matrix.network.edgelist(dat$nw)
+      edges <- edges[order(edges[,1]),]
+      indices1 <- c(0)
+      indices2 <- c(0)
+      for (ids in idsInf2) { 
+        indices1 <- c(indices1,which(edges[,1]==ids))
+        indices2 <- c(indices2,which(edges[,2]==ids))
+      }
+      indices1 <- indices1[-1]
+      indices2 <- indices2[-1]
+      fromedges <- edges[indices1,]
+      fromsusindices <- c(0)
+      for (ids in ids_sus){
+        fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+      }
+      fromedges <- fromedges[fromsusindices,]
+      toedges <- edges[indices2,]
+      tosusindices <- c(0)
+      for (ids in ids_sus){
+        tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+      }
+      toedges <- toedges[tosusindices,]
+      
+      if (!(is.null(nrow(toedges)))) {
+        toedges <- toedges[,c(2,1)]
+      }
+      if (is.vector(toedges)) {
+        toedges <- c(toedges[2],toedges[1])
+      }
+      edges <- rbind(fromedges,toedges)
+      
+      if (!(is.null(edges))) {
+        trans_probability_sus_i2 <- dat$param$inf.probStable
+        act_rate <- dat$param$act.rate
+        final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+        transmit_sus_i2 <- rbinom(nrow(edges),1,final_probability_sus_i2) #trasmit rate is a binary variable
+        edges <- edges[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
+        if (!(is.null(nrow(edges)))) {
+          ids_newInf2_sus <- unique(edges[,2])
+          num_newInf2_sus <- length(ids_newInf2_sus)
+          if (num_newInf2_sus > 0) {
+            dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+            dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+          }
+        }
+        if (is.vector(edges)){
+          ids_newInf2_sus <- edges[2]
+          num_newInf2_sus <- length(ids_newInf2_sus)
+          if (num_newInf2_sus > 0) {
+            dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+            dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+          }
         }
       }
     } 
@@ -456,7 +492,10 @@ progress <- function(dat, at) {
     dat$epi$i2i3.flow <- c(0,num_i2i3)
     dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
     dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
-    dat$epi$i1ANDi2 <- c(0, sum(active == 1 & status == "i")) + c(0, sum(active == 1 & status == "i2"))
+    dat$epi$i1ANDi2.num <- c(0, sum(active == 1 & status == "i")) + c(0, sum(active == 1 & status == "i2"))
+    print(dat$epi$i.num)
+    print(dat$epi$i2.num)
+    print(dat$epi$i1ANDi2.num)
     #dat$epi$i3.num <- c(0,sum(active == 1 & status == "i3"))
   }
   else {
@@ -465,14 +504,17 @@ progress <- function(dat, at) {
     dat$epi$i2i3.flow[at] <- num_i2i3
     dat$epi$i.num[at] <- sum(active == 1 & status == "i")
     dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
-    dat$epi$i1ANDi2[at] <- sum(active == 1 & status == "i") + sum(active == 1 & status == "i2")
+    dat$epi$i1ANDi2.num[at] <- sum(active == 1 & status == "i") + sum(active == 1 & status == "i2")
+    print(dat$epi$i.num[at])
+    print(dat$epi$i2.num[at])
+    print(dat$epi$i1ANDi2.num[at])
     #dat$epi$i3.num <- sum(active == 1 & status == "i3")
   }
   
   dat$attr$status <- status
   
   #change summary statistics
-
+  
   return(dat)
 }
 
@@ -484,22 +526,22 @@ nw <- set.vertex.attribute(nw, "Gender", sample(c(0,1),size=networkSize,
                                                 prob=c(1-percentMales,percentMales),replace=TRUE))
 #sets race attribute for nodes
 nw <- set.vertex.attribute(nw, "Race", sample(c(0,1),size=networkSize,
-                          prob=c(1-percentWhite,percentWhite),replace=TRUE))
+                                              prob=c(1-percentWhite,percentWhite),replace=TRUE))
 
 #sets income attribute for nodes
 nw <- set.vertex.attribute(nw, "Income", sample(c(0,1),size=networkSize,
-                          prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
+                                                prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
 #sets incarceration attribut for nodes
 nw <- set.vertex.attribute(nw, "Incarceration", sample(c(0,1),size=networkSize,
-                          prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
+                                                       prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
 
 #sets prep attribute for nodes
 nw <- set.vertex.attribute(nw,"prep_status",sample(c(0,1),size=networkSize,
-                          prob=c(1-(prep_number/networkSize),(prep_number/networkSize)),replace=TRUE))
+                                                   prob=c(1-(prep_number/networkSize),(prep_number/networkSize)),replace=TRUE))
 
 #sets art attribute for nodes
 nw <- set.vertex.attribute(nw,"art_status",sample(c(0,1),size=networkSize,
-                          prob = c(1 - (art_number/networkSize),(art_number/networkSize)),replace = TRUE))
+                                                  prob = c(1 - (art_number/networkSize),(art_number/networkSize)),replace = TRUE))
 
 
 #formation formula
@@ -538,7 +580,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 50, nsims = 20, 
+control <- control.net(type = "SI", nsteps = 10, nsims = 1, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -548,5 +590,7 @@ sim <- netsim(est, param, init, control)
 
 ## ----ExtEx2-plot1--------------------------------------------------------
 par(mar = c(3,3,1,1), mgp = c(2,1,0))
-plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2"), popfrac = FALSE,
+#plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2.num"), popfrac = FALSE,
+     #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
+plot(sim, y = c("i.num","i1ANDi2.num"), popfrac = FALSE,
      mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
