@@ -1,14 +1,53 @@
-## ----setup, message = FALSE----------------------------------------------
 library("EpiModel")
 
-#parameters 
+#network statistics 
+#formation
+#number of nodes 
+networkSize <- 550  
+deg0 <- 181
+deg1 <- 154
+deg2 <- 54
+deg3 <- 28
+deg4 <- 23
+deg5 <- 15
+deg6 <- 15
+deg7 <- 14
+deg8 <- 9
+deg9 <- 9 
+deg10 <- 10 
+deg11 <- 5
+deg12 <- 5
+deg13 <- 5
+deg14 <- 4
+deg15 <- 1
+deg16 <- 3
+deg17 <- 4
+deg19 <- 2
+deg22 <- 1 
+deg24 <- 1 
+deg26 <- 1 
+deg28 <- 1 
+deg34 <- 1
+deg35 <- 1
+deg47 <- 1 
+deg50 <- 1 
+deg55 <- 1
+avgdeg <- 3.05
+degpop <- 68859.51
+#calculated parameters 
+edges <- 840
+#dissolution
+#average duration of edge
+avgEdgeDuration <- 365
 
+
+#intervention parameters
 #total number of nodes on prep
-prep_number <- 50
+prep_number <- 0
 #prep start time days
 prep_start_time <- 100
 #total number of nodes on art
-art_number <- 30
+art_number <- 0
 #average frequency people exchange needles in SEP (days)
 sep_exchange_frequency <- 2
 #SEP start time days 
@@ -16,9 +55,11 @@ sep_start_time <- 50
 #SEP compliance rate 
 sep_compliance <- 0.9
 #SEP number of participants 
-sep_enrollment <- 100 
+sep_enrollment <- 0 
 #total number of nodes in network
-networkSize <- 196 
+
+
+#node parameters 
 #percent of nodes that are males
 percentMales <- 0.577
 #percent of nodes that are white
@@ -27,28 +68,28 @@ percentWhite <- 0.985
 percentIncome10K <- 0.919
 #percent of nodes previously incarcerated 
 percentIncarcerated <- 0.542
-#average degree of nodes
-##MADE UP
-avgDegree <- 1.5
-#average duration of edge
-##MADE UP
-avgEdgeDuration <- 90
-#probability of infection per transmissible act
+
+
+#disease parameters 
+#probability of infection per transmissible act in acute phase
 acuteProb <- 1
-stableProb <- 0.12
-transitRate <-1/84 ##12 weeks of acute phase
+#probability of infection per transmissible act in chronic phase
+stableProb <- 0.5
+#transition rate from acute to chronic 
+transitRate <- 1/21 ##12 weeks of acute phase
 #average number of transmissible acts per partnership per unit of time
 actRate <- 2
-#average number of transmissible acts per partnership per unit of time
-##MADE UP
-#initial number of nodes infected
-initAcute <- 5
-initStable <- 3
-#calculated parameters 
-num_edges <- (networkSize*avgDegree)/2
 
-##determine which intervention strategy to be implemented
-whether_prep = 1
+
+#simulation parameters
+#initial number of nodes infected acute
+initAcute <- 0
+#initial number of nodes infected chronic
+initStable <- 100
+
+
+#determine which intervention strategy to be implemented
+whether_prep = 0
 whether_art = 0
 whether_sep = 0
 
@@ -70,6 +111,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   idsInf1 <- which(active == 1 & status == "i") #people who are active and status I1
   idsInf2 <- which(active == 1 & status == "i2") #people who are active and status I2
   
+  
   ##ids of people with intervention implemented
   ids_sus_prep <- which(active == 1 & status == "s" & prep_status == 1) #people who are active and status S
   ids_sus_noprep <- which(active == 1 & status == "s" & prep_status == 0)
@@ -83,15 +125,60 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   nActive <- sum(active == 1) #total number of active people
   nElig1 <- length(idsInf1) #Number of infectious people at acute phase
   nElig2 <- length(idsInf2) #Number of infectious people at stable infectious phase
-  num_newInf1_from_sus_prep <- 0 #Used as a variable in if loop
-  num_newInf1_from_sus_noprep <- 0 #Used as a variable in if loop
-  num_newInf2_from_sus_prep <- 0
-  num_newInf2_from_sus_noprep <- 0
+  # num_newInf1_from_sus_prep <- 0 #Used as a variable in if loop
+  # num_newInf1_from_sus_noprep <- 0 #Used as a variable in if loop
+  # num_newInf2_from_sus_prep <- 0
+  # num_newInf2_from_sus_noprep <- 0
   
- 
-    
+  if (whether_prep==0 & whether_sep==0 & whether_art==0) {
+    num_newInf1_sus <- 0 
+    num_newInf2_sus <- 0
+    if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
+      del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
+      if (!(is.null(del9))) {
+        del9$trans_probability_sus_i1 <- dat$param$inf.probAcute
+        del9$act_rate <- dat$param$act.rate
+        del9$final_probability_sus_i1 <- 1 - (1 - del9$trans_probability_sus_i1)^del9$act_rate #final transmission prob, using binomial prob
+        transmit_sus_i1 <- rbinom(nrow(del9),1,del9$final_probability_sus_i1) #trasmit rate is a binary variable
+        del9 <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
+        ids_newInf1_sus <- unique(del9$sus)
+        num_newInf1_sus <- length(ids_newInf1_sus)
+        if (num_newInf1_sus > 0) {
+          dat$attr$status[ids_newInf1_sus] <- "i" #status is active
+          dat$attr$infTime[ids_newInf1_sus] <- at #timestamp
+        }
+      }
+    }
+    if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
+      del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
+      print(del10)
+      if (!(is.null(del10))) {
+        del10$trans_probability_sus_i2 <- dat$param$inf.probStable
+        print(dat$param$inf.probStable)
+        del10$act_rate <- dat$param$act.rate
+        del10$final_probability_sus_i2 <- 1 - (1 - del10$trans_probability_sus_i2)^del10$act_rate #final transmission prob, using binomial prob
+        transmit_sus_i2 <- rbinom(nrow(del10),1,del10$final_probability_sus_i2) #trasmit rate is a binary variable
+        del10 <- del10[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
+        ids_newInf2_sus <- unique(del10$sus)
+        num_newInf2_sus <- length(ids_newInf2_sus)
+        if (num_newInf2_sus > 0) {
+          dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+          dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+        }
+      }
+    } 
+    if (at == 2) { ##time starts at 2
+      dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
+    }
+    else {
+      dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus 
+    }
+    dat$nw <- nw
+  }
   if (whether_prep) {
     if (at < prep_start_time) {
+      num_newInf1_sus <- 0 
+      num_newInf2_sus <- 0
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
         del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
         if (!(is.null(del9))) {
@@ -312,20 +399,17 @@ progress <- function(dat, at) {
   
   active <- dat$attr$active
   status <- dat$attr$status
-  prep_treat <- dat$attr$prep_treat
-  art_treat <- dat$attr$art_treat
+  #prep_treat <- dat$attr$prep_treat
+  art_status <- dat$attr$art_status
   # prep_compliance <- dat$attr$prep_compliance
   # art_compliance <- dat$attr$art_compliance
   ##needle_exchange <- dat$attr$needle_exchange
-
-  i1i2.rate <- dat$param$i1i2.rate  #inflow rate from i1 to i2
-
+  
   ## Acute to Chronic progression
   num_i1i2 <- 0
-
   i1i2.rate <- dat$param$i1i2.rate  #inflow rate from i1 to i2
-
-  ## A to I progression
+  
+  ## A to I2 progression
   nInf <- 0
   idsEligInf <- which(active == 1 & status == "i") #active and status of acute phase
   nEligInf <- length(idsEligInf)
@@ -338,12 +422,10 @@ progress <- function(dat, at) {
       status[ids_i1i2] <- "i2" #update the style from acute to stable
     }
   }
-
-  dat$attr$status <- status
   
   ## Acute to Viral Suppressed progression
   num_i1i3 <- 0
-  ids_acute_art <- which(active == 1 & status == "i" & art_treat == 1)
+  ids_acute_art <- which(active == 1 & status == "i" & art_status == 1)
   num_acute_art <- length(ids_acute_art)
   
   if (num_acute_art > 0) {
@@ -351,17 +433,20 @@ progress <- function(dat, at) {
     status[ids_acute_art] <- "i3"
   }
   
-  dat$attr$status <- status
+  ##dat$attr$status <- status
   
   ## Chronical to Viral Suppressed progression
   num_i2i3 <- 0
-  ids_chronical_prep <- which(active == 1 & status == "i2" & prep_treat == 1)
-  num_chronical_prep <- length(ids_chronical_prep)
+  ids_chronical_art <- which(active == 1 & status == "i2" & art_status == 1)
+  num_chronical_art <- length(ids_chronical_art)
   
-  if (num_chronical_prep > 0) {
-    num_i2i3 <- num_chronical_prep
-    statusp[ids_chronical_prep] <- "i3"
+  if (num_chronical_art > 0) {
+    num_i2i3 <- num_chronical_art
+    status[ids_chronical_art] <- "i3"
   }
+  
+  ##update status on dat level
+  dat$attr$status <- status
   
   #change summary statistics
   
@@ -371,7 +456,8 @@ progress <- function(dat, at) {
     dat$epi$i2i3.flow <- c(0,num_i2i3)
     dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
     dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
-    dat$epi$i3.num <- c(0,sum(active == 1 & status == "i3"))
+    dat$epi$i1ANDi2 <- c(0, sum(active == 1 & status == "i")) + c(0, sum(active == 1 & status == "i2"))
+    #dat$epi$i3.num <- c(0,sum(active == 1 & status == "i3"))
   }
   else {
     dat$epi$i1i2.flow[at] <- num_i1i2
@@ -379,31 +465,14 @@ progress <- function(dat, at) {
     dat$epi$i2i3.flow[at] <- num_i2i3
     dat$epi$i.num[at] <- sum(active == 1 & status == "i")
     dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
-    dat$epi$i3.num <- sum(active == 1 & status == "i3")
-
-    vecInf <- which(rbinom(nEligInf, 1, i1i2.rate) == 1) #select people moving from acute to stable phase
-    if (length(vecInf) > 0) {
-      idsInf <- idsEligInf[vecInf]
-      nInf <- length(idsInf)
-      status[idsInf] <- "i2" #update the style from acute to stable
-    }
+    dat$epi$i1ANDi2[at] <- sum(active == 1 & status == "i") + sum(active == 1 & status == "i2")
+    #dat$epi$i3.num <- sum(active == 1 & status == "i3")
   }
   
   dat$attr$status <- status
   
   #change summary statistics
-  
-  if (at == 2) {
-    dat$epi$i1i2.flow <- c(0, nInf) 
-    dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
-    dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
-  }
-  else {
-    dat$epi$i1i2.flow[at] <- nInf
-    dat$epi$i.num[at] <- sum(active == 1 & status == "i")
-    dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
-  }
-  
+
   return(dat)
 }
 
@@ -415,29 +484,29 @@ nw <- set.vertex.attribute(nw, "Gender", sample(c(0,1),size=networkSize,
                                                 prob=c(1-percentMales,percentMales),replace=TRUE))
 #sets race attribute for nodes
 nw <- set.vertex.attribute(nw, "Race", sample(c(0,1),size=networkSize,
-                                              prob=c(1-percentWhite,percentWhite),replace=TRUE))
+                          prob=c(1-percentWhite,percentWhite),replace=TRUE))
 
 #sets income attribute for nodes
 nw <- set.vertex.attribute(nw, "Income", sample(c(0,1),size=networkSize,
-                                                prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
+                          prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
 #sets incarceration attribut for nodes
 nw <- set.vertex.attribute(nw, "Incarceration", sample(c(0,1),size=networkSize,
-                                                       prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
+                          prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
 
 #sets prep attribute for nodes
 nw <- set.vertex.attribute(nw,"prep_status",sample(c(0,1),size=networkSize,
-                                            prob=c(1-(prep_number/networkSize),(prep_number/networkSize)),replace=TRUE))
+                          prob=c(1-(prep_number/networkSize),(prep_number/networkSize)),replace=TRUE))
 
 #sets art attribute for nodes
 nw <- set.vertex.attribute(nw,"art_status",sample(c(0,1),size=networkSize,
-                                                  prob = c(1 - (art_number/networkSize),(art_number/networkSize)),replace = TRUE))
+                          prob = c(1 - (art_number/networkSize),(art_number/networkSize)),replace = TRUE))
 
 
 #formation formula
-formation <- ~edges
+formation <- ~edges 
 
 #target stats
-target.stats <- c(num_edges)
+target.stats <- c(edges)
 
 #edge dissolution
 #edge duration same for all partnerships
@@ -466,10 +535,10 @@ status_vector = c(rep("s",networkSize))
 status_vector[nodes_i1] = "i"
 status_vector[nodes_i2] = "i2"
 
-init <- init.net(status.vector = status.vector)
+init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 500, nsims = 3, 
+control <- control.net(type = "SI", nsteps = 50, nsims = 20, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -479,5 +548,5 @@ sim <- netsim(est, param, init, control)
 
 ## ----ExtEx2-plot1--------------------------------------------------------
 par(mar = c(3,3,1,1), mgp = c(2,1,0))
-plot(sim, y = c("s.num", "i.num", "i2.num"), popfrac = FALSE,
+plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2"), popfrac = FALSE,
      mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
