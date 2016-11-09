@@ -41,9 +41,9 @@ avgEdgeDuration <- 365
 
 #intervention parameters
 #total number of nodes on prep
-prep_number <- 0
+prep_number <- 10
 #prep start time days
-prep_start_time <- 100
+prep_start_time <- 8
 #total number of nodes on art
 art_number <- 0
 #average frequency people exchange needles in SEP (days)
@@ -87,7 +87,7 @@ initStable <- 10
 
 
 #determine which intervention strategy to be implemented
-whether_prep = 0
+whether_prep = 1
 whether_art = 0
 whether_sep = 0
 
@@ -216,14 +216,14 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       num_newInf1_sus <- 0 
       num_newInf2_sus <- 0
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
-        del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
-        if (!(is.null(del9))) {
-          del9$trans_probability_sus_i1 <- dat$param$inf.probAcute
-          del9$act_rate <- dat$param$act.rate
-          del9$final_probability_sus_i1 <- 1 - (1 - del9$trans_probability_sus_i1)^del9$act_rate #final transmission prob, using binomial prob
-          transmit_sus_i1 <- rbinom(nrow(del9),1,del9$final_probability_sus_i1) #trasmit rate is a binary variable
-          del9 <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf1_sus <- unique(del9$sus)
+        del1 <- discord_edgelist(dat, idsInf1, ids_sus, at)
+        if (!(is.null(del1))) {
+          del1$trans_probability_sus_i1 <- dat$param$inf.probAcute
+          del1$act_rate <- dat$param$act.rate
+          del1$final_probability_sus_i1 <- 1 - (1 - del1$trans_probability_sus_i1)^del1$act_rate #final transmission prob, using binomial prob
+          transmit_sus_i1 <- rbinom(nrow(del1),1,del1$final_probability_sus_i1) #trasmit rate is a binary variable
+          del1 <- del1[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
+          ids_newInf1_sus <- unique(del1$sus)
           num_newInf1_sus <- length(ids_newInf1_sus)
           if (num_newInf1_sus > 0) {
             dat$attr$status[ids_newInf1_sus] <- "i" #status is active
@@ -232,18 +232,58 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       }
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
-        del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
-        if (!(is.null(del10))) {
-          del10$trans_probability_sus_i2 <- dat$param$inf.probStable
-          del10$act_rate <- dat$param$act.rate
-          del10$final_probability_sus_i2 <- 1 - (1 - del10$trans_probability_sus_i2)^del10$act_rate #final transmission prob, using binomial prob
-          transmit_sus_i2 <- rbinom(nrow(del10),1,del10$final_probability_sus_i2) #trasmit rate is a binary variable
-          del10 <- del10[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf2_sus <- unique(del10$sus)
-          num_newInf2_sus <- length(ids_newInf2_sus)
-          if (num_newInf2_sus > 0) {
-            dat$attr$status[ids_newInf2_sus] <- "i" #status is active
-            dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+        edges <- as.matrix.network.edgelist(dat$nw)
+        edges <- edges[order(edges[,1]),]
+        indices1 <- c(0)
+        indices2 <- c(0)
+        for (ids in idsInf2) { 
+          indices1 <- c(indices1,which(edges[,1]==ids))
+          indices2 <- c(indices2,which(edges[,2]==ids))
+        }
+        indices1 <- indices1[-1]
+        indices2 <- indices2[-1]
+        fromedges <- edges[indices1,]
+        fromsusindices <- c(0)
+        for (ids in ids_sus){
+          fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+        }
+        fromedges <- fromedges[fromsusindices,]
+        toedges <- edges[indices2,]
+        tosusindices <- c(0)
+        for (ids in ids_sus){
+          tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+        }
+        toedges <- toedges[tosusindices,]
+        
+        if (!(is.null(nrow(toedges)))) {
+          toedges <- toedges[,c(2,1)]
+        }
+        if (is.vector(toedges)) {
+          toedges <- c(toedges[2],toedges[1])
+        }
+        edges <- rbind(fromedges,toedges)
+        
+        if (!(is.null(edges))) {
+          trans_probability_sus_i2 <- dat$param$inf.probStable
+          act_rate <- dat$param$act.rate
+          final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+          transmit_sus_i2 <- rbinom(nrow(edges),1,final_probability_sus_i2) #trasmit rate is a binary variable
+          edges <- edges[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
+          if (!(is.null(nrow(edges)))) {
+            ids_newInf2_sus <- unique(edges[,2])
+            num_newInf2_sus <- length(ids_newInf2_sus)
+            if (num_newInf2_sus > 0) {
+              dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+            }
+          }
+          if (is.vector(edges)){
+            ids_newInf2_sus <- edges[2]
+            num_newInf2_sus <- length(ids_newInf2_sus)
+            if (num_newInf2_sus > 0) {
+              dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+            }
           }
         }
       } 
@@ -256,89 +296,228 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       dat$nw <- nw
     }
     else {
+      num_newInf1_from_sus_prep <- 0 
+      num_newInf1_from_sus_noprep <- 0
+      num_newInf2_from_sus_prep <- 0 
+      num_newInf2_from_sus_noprep <- 0
       ##Identify the dyads between susceptible and acute phase patients  
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) { ##if people who are in acute infectious and that is less than total active
         ##Epimodel gives a vector of edges of people in acute phase, susceptible phase
         ##dat = data, at = at timestamp
         
         ##acute patient with susceptible on prep
-        del1 <- discord_edgelist(dat, idsInf1, ids_sus_prep, at)
-        if (!(is.null(del1))) {
-          del1$trans_probability_susprep_i1 <- (dat$param$inf.probAcute) * (1-dat$param$prep_efficacy)
-          del1$act_rate <- dat$param$act.rate
-          del1$final_probability_susprep_i1 <- 1 - (1 - del1$trans_probability_susprep_i1)^del1$act_rate #final transmission prob, using binomial prob
-          transmit_susprep_i1 <- rbinom(nrow(del1),1,del1$final_probability_susprep_i1) #trasmit rate is a binary variable
-          del1 <- del1[which(transmit_susprep_i1 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf1_from_sus_prep <- unique(del1$sus)
-          num_newInf1_from_sus_prep <- length(ids_newInf1_from_sus_prep)
-          if (num_newInf1_from_sus_prep > 0) {
-            dat$attr$status[ids_newInf1_from_sus_prep] <- "i" #status is active
-            dat$attr$infTime[ids_newInf1_from_sus_prep] <- at #timestamp
+        edges <- as.matrix.network.edgelist(dat$nw)
+        edges <- edges[order(edges[,1]),]
+        indices1 <- c(0)
+        indices2 <- c(0)
+        for (ids in ids_sus_prep) { 
+          indices1 <- c(indices1,which(edges[,1]==ids))
+          indices2 <- c(indices2,which(edges[,2]==ids))
+        }
+        indices1 <- indices1[-1]
+        indices2 <- indices2[-1]
+        fromedges <- edges[indices1,]
+        fromsusindices <- c(0)
+        for (ids in idsInf1){
+          fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+        }
+        fromedges <- fromedges[fromsusindices,]
+        toedges <- edges[indices2,]
+        tosusindices <- c(0)
+        for (ids in idsInf1){
+          tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+        }
+        toedges <- toedges[tosusindices,]
+        if (!(is.null(nrow(toedges)))) {
+          toedges <- toedges[,c(2,1)]
+        }
+        if (is.vector(toedges)) {
+          toedges <- c(toedges[2],toedges[1])
+        }
+        edges <- rbind(fromedges,toedges)
+        if (!(is.null(edges))) {
+          trans_probability_susprep_i1 <- (dat$param$inf.probAcute) * (1-dat$param$prep_efficacy)
+          act_rate <- dat$param$act.rate
+          final_probability_susprep_i1 <- 1 - (1 - trans_probability_susprep_i1)^act_rate #final transmission prob, using binomial prob
+          transmit_susprep_i1 <- rbinom(nrow(edges),1,final_probability_susprep_i1) #trasmit rate is a binary variable
+          edges <- edges[which(transmit_susprep_i1 == 1),] #select all the nodes where transmit rate is 1
+          if (!(is.null(nrow(edges)))){
+            ids_newInf1_from_sus_prep <- unique(edges[,2])
+            num_newInf1_from_sus_prep <- length(ids_newInf1_from_sus_prep)
+            if (num_newInf1_from_sus_prep > 0) {
+              dat$attr$status[ids_newInf1_from_sus_prep] <- "i" #status is active
+              dat$attr$infTime[ids_newInf1_from_sus_prep] <- at #timestamp
+            } 
+          
           }
         }
         
         ##acute patient with susceptible not on prep
-        del2 <- discord_edgelist(dat, idsInf1, ids_sus_noprep, at)
-        if (!(is.null(del2))) {
-          del2$trans_probability_susnoprep_i1 <- dat$param$inf.probAcute
-          del2$act_rate <- dat$param$act.rate
-          del2$final_probability_susnoprep_i1 <- 1 - (1 - del2$trans_probability_susnoprep_i1)^del2$act_rate
-          transmit_susnoprep_i1 <- rbinom(nrow(del2),1,del2$final_probability_susnoprep_i1)
-          del2 <- del2[which(transmit_susnoprep_i1 == 1),]
-          ids_newInf1_from_sus_noprep <- unique(del2$sus)
-          num_newInf1_from_sus_noprep <- length(ids_newInf1_from_sus_noprep)
-          if (num_newInf1_from_sus_noprep > 0) {
-            dat$attr$status[ids_newInf1_from_sus_noprep] <- "i" #status is active
-            dat$attr$infTime[ids_newInf1_from_sus_noprep] <- at #timestamp
+        edges <- as.matrix.network.edgelist(dat$nw)
+        edges <- edges[order(edges[,1]),]
+        indices1 <- c(0)
+        indices2 <- c(0)
+        for (ids in ids_sus_noprep) { 
+          indices1 <- c(indices1,which(edges[,1]==ids))
+          indices2 <- c(indices2,which(edges[,2]==ids))
+        }
+        indices1 <- indices1[-1]
+        indices2 <- indices2[-1]
+        fromedges <- edges[indices1,]
+        fromsusindices <- c(0)
+        for (ids in idsInf1){
+          fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+        }
+        fromedges <- fromedges[fromsusindices,]
+        toedges <- edges[indices2,]
+        tosusindices <- c(0)
+        for (ids in idsInf1){
+          tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+        }
+        toedges <- toedges[tosusindices,]
+        if (!(is.null(nrow(toedges)))) {
+          toedges <- toedges[,c(2,1)]
+        }
+        if (is.vector(toedges)) {
+          toedges <- c(toedges[2],toedges[1])
+        }
+        edges <- rbind(fromedges,toedges)
+        if (!(is.null(edges))) {
+          trans_probability_susnoprep_i1 <- dat$param$inf.probAcute
+          act_rate <- dat$param$act.rate
+          final_probability_susnoprep_i1 <- 1 - (1 - trans_probability_susnoprep_i1)^act_rate
+          transmit_susnoprep_i1 <- rbinom(nrow(edges),1,final_probability_susnoprep_i1)
+          edges <- edges[which(transmit_susnoprep_i1 == 1),]
+          if (!(is.null(nrow(edges)))){
+            ids_newInf1_from_sus_noprep <- unique(edges[,2])
+            num_newInf1_from_sus_noprep <- length(ids_newInf1_from_sus_noprep)
+            if (num_newInf1_from_sus_noprep > 0) {
+              dat$attr$status[ids_newInf1_from_sus_noprep] <- "i" #status is active
+              dat$attr$infTime[ids_newInf1_from_sus_noprep] <- at #timestamp
+            }
           }
         }
       }
       
       ##identify the dyads between susceptible and stable phase patients
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {   #nodes that are infected from the stable phase
-        ##chronical patient with susceptible on prep
-        del3 <- discord_edgelist(dat, idsInf2, ids_sus_prep, at)
-        if (!(is.null(del3))) {
-          del3$trans_probability_susprep_i2 <- (dat$param$inf.probStable) * (1-dat$param$prep_efficacy)
-          del3$act_rate <- dat$param$act.rate
-          del3$final_probability_susprep_i2 <- 1 - (1 - del3$trans_probability_susprep_i2)^del3$act_rate #final transmission prob, using binomial prob
-          transmit_susprep_i2 <- rbinom(nrow(del3),1,del3$final_probability_susprep_i2) #trasmit rate is a binary variable
-          del3 <- del3[which(transmit_susprep_i2 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf2_from_sus_prep <- unique(del3$sus)
-          num_newInf2_from_sus_prep <- length(ids_newInf2_from_sus_prep)
-          if (num_newInf2_from_sus_prep > 0) {
-            dat$attr$status[ids_newInf2_from_sus_prep] <- "i" #status is active
-            dat$attr$infTime[ids_newInf2_from_sus_prep] <- at #timestamp
+        ##chronic patients with susceptible no prep
+        edges <- as.matrix.network.edgelist(dat$nw)
+        edges <- edges[order(edges[,1]),]
+        indices1 <- c(0)
+        indices2 <- c(0)
+        for (ids in ids_sus_noprep) { 
+          indices1 <- c(indices1,which(edges[,1]==ids))
+          indices2 <- c(indices2,which(edges[,2]==ids))
+        }
+        indices1 <- indices1[-1]
+        indices2 <- indices2[-1]
+        fromedges <- edges[indices1,]
+        fromsusindices <- c(0)
+        for (ids in idsInf2){
+          fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+        }
+        fromedges <- fromedges[fromsusindices,]
+        toedges <- edges[indices2,]
+        tosusindices <- c(0)
+        for (ids in idsInf2){
+          tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+        }
+        toedges <- toedges[tosusindices,]
+        
+        if (!(is.null(nrow(toedges)))) {
+          toedges <- toedges[,c(2,1)]
+        }
+        if (is.vector(toedges)) {
+          toedges <- c(toedges[2],toedges[1])
+        }
+        edges <- rbind(fromedges,toedges)
+        if (!(is.null(edges))) {
+          trans_probability_sus_i2 <- dat$param$inf.probStable
+          act_rate <- dat$param$act.rate
+          final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+          transmit_sus_i2 <- rbinom(nrow(edges),1,final_probability_sus_i2) #trasmit rate is a binary variable
+          edges <- edges[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
+          if (!(is.null(nrow(edges)))) {
+            ids_newInf2_from_sus_noprep <- unique(edges[,2])
+            num_newInf2_from_sus_noprep <- length(ids_newInf2_from_sus_noprep)
+            if (num_newInf2_from_sus_noprep > 0) {
+              dat$attr$status[ids_newInf2_from_sus_noprep] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_from_sus_noprep] <- at #timestamp
+            }
+          }
+          if (is.vector(edges)){
+            ids_newInf2_from_sus_noprep <- edges[2]
+            num_newInf2_from_sus_noprep <- length(ids_newInf2_from_sus_noprep)
+            if (num_newInf2_from_sus_noprep > 0) {
+              dat$attr$status[ids_newInf2_from_sus_noprep] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_from_sus_noprep] <- at #timestamp
+            }
           }
         }
         
-        ##chronical patient with susceptible not on prep
-        del4 <- discord_edgelist(dat, idsInf2, ids_sus_noprep, at)
-        if (!(is.null(del4))) {
-          del4$trans_probability_susnoprep_i2 <- dat$param$inf.probStable
-          del4$act_rate <- dat$param$act.rate
-          del4$final_probability_susnoprep_i2 <- 1 - (1 - del4$trans_probability_susnoprep_i2)^del4$act_rate
-          transmit_susnoprep_i2 <- rbinom(nrow(del4),1,del4$final_probability_susnoprep_i2)
-          del4 <- del4[which(transmit_susnoprep_i2 == 1),]
-          ids_newInf2_from_sus_noprep <- unique(del4$sus)
-          num_newInf2_from_sus_noprep <- length(ids_newInf2_from_sus_noprep)
-          if (num_newInf2_from_sus_noprep > 0) {
-            dat$attr$status[ids_newInf2_from_sus_noprep] <- "i" #status is active
-            dat$attr$infTime[ids_newInf2_from_sus_noprep] <- at #timestamp
+        ##chronic patients with susceptible prep
+        edges <- as.matrix.network.edgelist(dat$nw)
+        edges <- edges[order(edges[,1]),]
+        indices1 <- c(0)
+        indices2 <- c(0)
+        for (ids in ids_sus_prep) { 
+          indices1 <- c(indices1,which(edges[,1]==ids))
+          indices2 <- c(indices2,which(edges[,2]==ids))
+        }
+        indices1 <- indices1[-1]
+        indices2 <- indices2[-1]
+        fromedges <- edges[indices1,]
+        fromsusindices <- c(0)
+        for (ids in idsInf2){
+          fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+        }
+        fromedges <- fromedges[fromsusindices,]
+        toedges <- edges[indices2,]
+        tosusindices <- c(0)
+        for (ids in idsInf2){
+          tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+        }
+        toedges <- toedges[tosusindices,]
+        if (!(is.null(nrow(toedges)))) {
+          toedges <- toedges[,c(2,1)]
+        }
+        if (is.vector(toedges)) {
+          toedges <- c(toedges[2],toedges[1])
+        }
+        edges <- rbind(fromedges,toedges)
+        if (!(is.null(edges))) {
+          trans_probability_sus_i2 <- dat$param$inf.probStable * (1-dat$param$prep_efficacy)
+          act_rate <- dat$param$act.rate
+          final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+          transmit_sus_i2 <- rbinom(nrow(edges),1,final_probability_sus_i2) #trasmit rate is a binary variable
+          edges <- edges[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
+          if (!(is.null(nrow(edges)))) {
+            ids_newInf2_from_sus_prep <- unique(edges[,2])
+            num_newInf2_from_sus_prep <- length(ids_newInf2_from_sus_prep)
+            if (num_newInf2_from_sus_prep > 0) {
+              dat$attr$status[ids_newInf2_from_sus_prep] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_from_sus_prep] <- at #timestamp
+            }
+          }
+          if (is.vector(edges)){
+            ids_newInf2_from_sus_prep <- edges[2]
+            num_newInf2_from_sus_prep <- length(ids_newInf2_from_sus_prep)
+            if (num_newInf2_from_sus_prep > 0) {
+              dat$attr$status[ids_newInf2_from_sus_prep] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_from_sus_prep] <- at #timestamp
+            }
           }
         }
       }
       if (at == 2) { ##time starts at 2
-        dat$epi$si.flow <- c(0, num_newInf1_from_sus_prep + num_newInf1_from_sus_noprep + 
-                               num_newInf2_from_sus_prep + num_newInf2_from_sus_noprep) #nInf1 is acute, nInf1 is susceptible
+        dat$epi$si.flow <- c(0, num_newInf1_from_sus_prep+num_newInf1_from_sus_noprep+ num_newInf2_from_sus_prep + num_newInf2_from_sus_noprep) #nInf1 is acute, nInf1 is susceptible
       }
       else {
-        dat$epi$si.flow[at] <- num_newInf1_from_sus_prep + num_newInf1_from_sus_noprep + 
-          num_newInf2_from_sus_prep + num_newInf2_from_sus_noprep
+        dat$epi$si.flow[at] <- num_newInf1_from_sus_prep+num_newInf1_from_sus_noprep+ num_newInf2_from_sus_prep + num_newInf2_from_sus_noprep
       }
       dat$nw <- nw
     }
-    
   }
   if (whether_art) {
     
@@ -493,9 +672,9 @@ progress <- function(dat, at) {
     dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
     dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
     dat$epi$i1ANDi2.num <- c(0, sum(active == 1 & status == "i")) + c(0, sum(active == 1 & status == "i2"))
-    print(dat$epi$i.num)
-    print(dat$epi$i2.num)
-    print(dat$epi$i1ANDi2.num)
+    # print(dat$epi$i.num)
+    # print(dat$epi$i2.num)
+    # print(dat$epi$i1ANDi2.num)
     #dat$epi$i3.num <- c(0,sum(active == 1 & status == "i3"))
   }
   else {
@@ -505,9 +684,9 @@ progress <- function(dat, at) {
     dat$epi$i.num[at] <- sum(active == 1 & status == "i")
     dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
     dat$epi$i1ANDi2.num[at] <- sum(active == 1 & status == "i") + sum(active == 1 & status == "i2")
-    print(dat$epi$i.num[at])
-    print(dat$epi$i2.num[at])
-    print(dat$epi$i1ANDi2.num[at])
+    # print(dat$epi$i.num[at])
+    # print(dat$epi$i2.num[at])
+    # print(dat$epi$i1ANDi2.num[at])
     #dat$epi$i3.num <- sum(active == 1 & status == "i3")
   }
   
@@ -536,12 +715,10 @@ nw <- set.vertex.attribute(nw, "Incarceration", sample(c(0,1),size=networkSize,
                                                        prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
 
 #sets prep attribute for nodes
-nw <- set.vertex.attribute(nw,"prep_status",sample(c(0,1),size=networkSize,
-                                                   prob=c(1-(prep_number/networkSize),(prep_number/networkSize)),replace=TRUE))
+nw <- set.vertex.attribute(nw,"prep_status",sample(c(rep(1,prep_number),rep(0,networkSize-prep_number))))
 
 #sets art attribute for nodes
-nw <- set.vertex.attribute(nw,"art_status",sample(c(0,1),size=networkSize,
-                                                  prob = c(1 - (art_number/networkSize),(art_number/networkSize)),replace = TRUE))
+nw <- set.vertex.attribute(nw,"art_status",sample(c(rep(1,art_number),rep(0,networkSize-art_number))))
 
 
 #formation formula
@@ -577,6 +754,7 @@ status_vector = c(rep("s",networkSize))
 status_vector[nodes_i1] = "i"
 status_vector[nodes_i2] = "i2"
 
+
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
@@ -591,6 +769,6 @@ sim <- netsim(est, param, init, control)
 ## ----ExtEx2-plot1--------------------------------------------------------
 par(mar = c(3,3,1,1), mgp = c(2,1,0))
 #plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2.num"), popfrac = FALSE,
-     #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
+#mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
 plot(sim, y = c("i.num","i1ANDi2.num"), popfrac = FALSE,
      mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
