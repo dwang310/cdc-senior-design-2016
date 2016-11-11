@@ -1,9 +1,10 @@
 library("EpiModel")
+library("dplyr")
 
 #network statistics 
 #formation
 #number of nodes 
-networkSize <- 550  
+networkSize <- 550
 deg0 <- 181
 deg1 <- 154
 deg2 <- 54
@@ -41,17 +42,17 @@ avgEdgeDuration <- 365
 
 #intervention parameters
 #total number of nodes on prep
-prep_number <- 10
+prep_number <- 10 
 #prep start time days
 prep_start_time <- 8
 #prep rate (number people put on prep/day)
 prep_rate <- 2 
 #total number of nodes on art
-art_number <- 10
+art_number <- 50
 #art start time days
 art_start_time <- 5 
 #art rate (number people put on art/day)
-art_rate <- 2
+art_rate <- 10
 #average frequency people exchange needles in SEP (days)
 sep_exchange_frequency <- 2
 #SEP start time days 
@@ -76,7 +77,7 @@ percentIncarcerated <- 0.542
 
 #disease parameters 
 #probability of infection per transmissible act in acute phase
-acuteProb <- 1
+acuteProb <- 0.8
 #probability of infection per transmissible act in chronic phase
 stableProb <- 0.12
 #transition rate from acute to chronic 
@@ -87,14 +88,14 @@ actRate <- 2
 
 #simulation parameters
 #initial number of nodes infected acute
-initAcute <- 2
+initAcute <- 0
 #initial number of nodes infected chronic
-initStable <- 10
+initStable <- 1
 
 
 #determine which intervention strategy to be implemented
 whether_prep = 0
-whether_art = 1
+whether_art = 0
 whether_sep = 0
 
 ##Disease phases (SII):
@@ -105,6 +106,21 @@ whether_sep = 0
 ## ----infection---------------------------------------------------
 ## Change the default state in the Epimodel
 infect <- function (dat,at) {  ##dat = data, at = at timestamp
+  
+  # edges2 <- as.matrix.network.edgelist(dat$nw)
+  # indices1 <- c(0)
+  # indices2 <- c(0)
+  # for (ids in nodes_i2) { 
+  #   indices1 <- c(indices1,which(edges2[,1]==ids))
+  #   indices2 <- c(indices2,which(edges2[,2]==ids))
+  # }
+  # indices1 <- indices1[-1]
+  # indices2 <- indices2[-1]
+  # edges3 <- edges2[indices1,]
+  # edges4 <- edges2[indices2,]
+  # edges5 <- rbind(edges3,edges4)
+  # print(edges5)
+  
   active <- dat$attr$active  #access attributes for people who are active (not dead).
   status <- dat$attr$status  #status will compartmentalize nodes in S, I1, I2, I3
   nw <- dat$nw  #network
@@ -120,17 +136,12 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   ids_inf1_noart <- which(active == 1 & status == "i" & art_status == 0)
   ids_inf2_art <- which(active == 1 & status == "i2" & art_status == 1)
   ids_inf2_noart <- which(active == 1 & status == "i2" & art_status == 0)
-  #idsInf3 <- which(active == 1 & status == "i3") #people who are active and status I3
   
   ##summary statisitcs
   nActive <- sum(active == 1) #total number of active people
   nElig1 <- length(idsInf1) #Number of infectious people at acute phase
   nElig2 <- length(idsInf2) #Number of infectious people at stable infectious phase
   nElig3 <- length(idsInf3)
-  # num_newInf1_from_sus_prep <- 0 #Used as a variable in if loop
-  # num_newInf1_from_sus_noprep <- 0 #Used as a variable in if loop
-  # num_newInf2_from_sus_prep <- 0
-  # num_newInf2_from_sus_noprep <- 0
   
   if (whether_prep==0 & whether_sep==0 & whether_art==0) {
     num_newInf1_sus <- 0 
@@ -151,6 +162,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       }
     }
+    status2 <- dat$attr$status
+    ids_sus <- which(active == 1 & status2 == "s")
+    idsInf1 <- which(active == 1 & status2 == "i")
+    idsInf2 <- which(active == 1 & status2 == "i2")
+    idsInf3 <- which(active == 1 & status2 == "i3")
+    nActive <- sum(active == 1)
+    nElig1 <- length(idsInf1)
+    nElig2 <- length(idsInf2)
+    nElig3 <- length(idsInf3)
     if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
       #from sus to Inf2
       edges <- as.matrix.network.edgelist(dat$nw)
@@ -169,6 +189,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         for (ids in ids_sus){
           fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
         }
+        fromsusindices <- fromsusindices[-1]
         fromedges <- fromedges[fromsusindices,]
       }
       if (is.vector(fromedges)){
@@ -176,6 +197,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         for (ids in ids_sus){
           fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
         }
+        fromsusindices <- fromsusindices[-1]
         fromedges <- fromedges[fromsusindices]
       }
       toedges <- edges[indices2,]
@@ -184,6 +206,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         for (ids in ids_sus){
           tosusindices <- c(tosusindices,which(toedges[,1]==ids))
         }
+        tosusindices <- tosusindices[-1]
         toedges <- toedges[tosusindices,]
         if(!(is.null(nrow(toedges)))){
           toedges <- toedges[,c(2,1)]
@@ -194,11 +217,12 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         for (ids in ids_sus){
           tosusindices <- c(tosusindices,which(toedges[1]==ids))
         }
+        tosusindices <- tosusindices[-1]
         toedges <- toedges[tosusindices]
         toedges <- c(toedges[2],toedges[1])
       }
       edges <- rbind(fromedges,toedges)
-      
+      print(nrow(edges))
       if (!(is.null(edges))) {
         trans_probability_sus_i2 <- dat$param$inf.probStable
         act_rate <- dat$param$act.rate
@@ -224,10 +248,17 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       }
     } 
     if (at == 2) { ##time starts at 2
-      dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
+      dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
+      dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
+      dat$epi$s.num <- c(0, sum(active == 1 & status =="s"))
+      dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus)
+  
     }
     else {
-      dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus 
+      dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+      dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+      dat$epi$s.num[at] <- sum(active == 1 & status =="s")
+      dat$epi$si.flow[at] <- num_newInf2_sus + num_newInf1_sus
     }
     dat$nw <- nw
   }
@@ -251,6 +282,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status2 <- dat$attr$status
+      ids_sus <- which(active == 1 & status2 == "s")
+      idsInf1 <- which(active == 1 & status2 == "i")
+      idsInf2 <- which(active == 1 & status2 == "i2")
+      idsInf3 <- which(active == 1 & status2 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
         #sus to Inf2
         edges <- as.matrix.network.edgelist(dat$nw)
@@ -324,9 +364,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       } 
       if (at == 2) { ##time starts at 2
+        dat$epi$i.num <- c(0,sum(active == 1 & status == "i"))
+        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
         dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
       }
       else {
+        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
         dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus 
       }
       dat$nw <- nw
@@ -479,7 +525,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
-      
+      status2 <- dat$attr$status
+      ids_sus <- which(active == 1 & status2 == "s")
+      idsInf1 <- which(active == 1 & status2 == "i")
+      idsInf2 <- which(active == 1 & status2 == "i2")
+      idsInf3 <- which(active == 1 & status2 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       ##identify the dyads between susceptible and stable phase patients
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {   #nodes that are infected from the stable phase
         ##chronic patients with susceptible no prep
@@ -623,9 +677,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       }
       if (at == 2) { ##time starts at 2
+        dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
+        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
         dat$epi$si.flow <- c(0, num_newInf1_from_sus_prep+num_newInf1_from_sus_noprep+ num_newInf2_from_sus_prep + num_newInf2_from_sus_noprep) #nInf1 is acute, nInf1 is susceptible
       }
       else {
+        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
         dat$epi$si.flow[at] <- num_newInf1_from_sus_prep+num_newInf1_from_sus_noprep+ num_newInf2_from_sus_prep + num_newInf2_from_sus_noprep
       }
       dat$nw <- nw
@@ -652,6 +712,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status2 <- dat$attr$status
+      ids_sus <- which(active == 1 & status2 == "s")
+      idsInf1 <- which(active == 1 & status2 == "i")
+      idsInf2 <- which(active == 1 & status2 == "i2")
+      idsInf3 <- which(active == 1 & status2 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
         #sus to Inf2
         edges <- as.matrix.network.edgelist(dat$nw)
@@ -725,9 +794,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       } 
       if (at == 2) { ##time starts at 2
+        dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
+        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
         dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
       }
       else {
+        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
         dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus 
       }
       dat$nw <- nw
@@ -753,6 +828,9 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         ids_inf_noart1 <- which(active == 1 & status == "i" & art_status == 0)
         ids_inf_noart2 <- which(active == 1 & status == "i2" & art_status == 0)
       }
+      
+      dat$attr$status[ids_inf_art] <- "i3"
+      
       #I1 and sus (no art)
       if (nElig1 > 0 && nElig1 < (nActive - (nElig2 + nElig3))) {
         edges <- as.matrix.network.edgelist(dat$nw)
@@ -825,6 +903,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status2 <- dat$attr$status
+      ids_sus <- which(active == 1 & status2 == "s")
+      idsInf1 <- which(active == 1 & status2 == "i")
+      idsInf2 <- which(active == 1 & status2 == "i2")
+      idsInf3 <- which(active == 1 & status2 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       #I2 and sus (no art)
       if (nElig2 > 0 && nElig2 < (nActive - (nElig1 + nElig3))) {
         #sus to Inf2
@@ -898,6 +985,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status3 <- dat$attr$status
+      ids_sus <- which(active == 1 & status3 == "s")
+      idsInf1 <- which(active == 1 & status3 == "i")
+      idsInf2 <- which(active == 1 & status3 == "i2")
+      idsInf3 <- which(active == 1 & status3 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       #I3 and sus (art)
       if (nElig3 > 0 && nElig3 < (nActive - (nElig1 + nElig2))) {
         edges <- as.matrix.network.edgelist(dat$nw)
@@ -971,15 +1067,22 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       }
       if (at == 2) { ##time starts at 2
-        dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus + num_newInf3_sus) #nInf1 is acute, nInf1 is susceptible
+        dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
+        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
+        dat$epi$i3.num <- c(0,sum(active==1 & status == "i3"))
+        dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus + num_newInf3_sus) 
       }
       else {
+        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
+        dat$epi$i3.num[at] <- sum(active == 1 & status =="i3")
         dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus + num_newInf3_sus
       }
       dat$nw <- nw
     }
   }
-  
   if (whether_sep) {
     if (at < sep_start_time){
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
@@ -998,6 +1101,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status2 <- dat$attr$status
+      ids_sus <- which(active == 1 & status2 == "s")
+      idsInf1 <- which(active == 1 & status2 == "i")
+      idsInf2 <- which(active == 1 & status2 == "i2")
+      idsInf3 <- which(active == 1 & status2 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
         del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
         if (!(is.null(del10))) {
@@ -1015,9 +1127,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       } 
       if (at == 2) { ##time starts at 2
+        dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
+        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
         dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
       }
       else {
+        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
         dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus
       }
       dat$nw <- nw
@@ -1040,6 +1158,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status2 <- dat$attr$status
+      ids_sus <- which(active == 1 & status2 == "s")
+      idsInf1 <- which(active == 1 & status2 == "i")
+      idsInf2 <- which(active == 1 & status2 == "i2")
+      idsInf3 <- which(active == 1 & status2 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
         del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
         if (!(is.null(del10))) {
@@ -1057,14 +1184,22 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       } 
       if (at == 2) { ##time starts at 2
+        dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
+        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
         dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
       }
       else {
+        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
+        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
+        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
         dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus
       }
       dat$nw <- nw
     }
   }
+  #plot(dat$nw)
+  #print(network.edgecount(dat$nw))
   return(dat)
 }
 ##----disease progression---------------------------------------------------
@@ -1072,22 +1207,14 @@ progress <- function(dat, at) {
   
   active <- dat$attr$active
   status <- dat$attr$status
-  print(status)
-  #prep_treat <- dat$attr$prep_treat
   art_status <- dat$attr$art_status
-  # prep_compliance <- dat$attr$prep_compliance
-  # art_compliance <- dat$attr$art_compliance
-  ##needle_exchange <- dat$attr$needle_exchange
   
-  ## Acute to Chronic progression
+  ##I1 to I2 progression
   num_i1i2 <- 0
   i1i2.rate <- dat$param$i1i2.rate  #inflow rate from i1 to i2
-  
-  ## A to I2 progression
   nInf <- 0
   idsEligInf <- which(active == 1 & status == "i") #active and status of acute phase
   nEligInf <- length(idsEligInf)
-  
   if (nEligInf > 0) {
     vec_i1i2 <- which(rbinom(nEligInf, 1, i1i2.rate) == 1) #select people moving from acute to stable phase
     if (length(vec_i1i2) > 0) {
@@ -1096,51 +1223,14 @@ progress <- function(dat, at) {
       status[ids_i1i2] <- "i2" #update the style from acute to stable
     }
   }
-  
-  ## Acute to Viral Suppressed progression
-  num_i1i3 <- 0
-  ids_acute_art <- which(active == 1 & status == "i" & art_status == 1)
-  num_acute_art <- length(ids_acute_art)
-  
-  if (num_acute_art > 0) {
-    num_i1i3 <- num_acute_art
-    status[ids_acute_art] <- "i3"
-  }
-  
-  ##dat$attr$status <- status
-  
-  ## Chronical to Viral Suppressed progression
-  num_i2i3 <- 0
-  ids_chronical_art <- which(active == 1 & status == "i2" & art_status == 1)
-  num_chronical_art <- length(ids_chronical_art)
-  
-  if (num_chronical_art > 0) {
-    num_i2i3 <- num_chronical_art
-    status[ids_chronical_art] <- "i3"
-  }
-  
-  ##update status on dat level
+ 
   dat$attr$status <- status
   
-  #change summary statistics
-  
   if (at == 2) {
-    dat$epi$i1i2.flow <- c(0, num_i1i2) 
-    dat$epi$i1i3.flow <- c(0,num_i1i3)
-    dat$epi$i2i3.flow <- c(0,num_i2i3)
-    dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
-    dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
-    dat$epi$i1ANDi2.num <- c(0, sum(active == 1 & status == "i")) + c(0, sum(active == 1 & status == "i2"))
-    dat$epi$i3.num <- c(0,sum(active == 1 & status == "i3"))
+    dat$epi$i1i2.flow <- c(0, num_i1i2)
   }
   else {
     dat$epi$i1i2.flow[at] <- num_i1i2
-    dat$epi$i1i3.flow[at] <- num_i1i3
-    dat$epi$i2i3.flow[at] <- num_i2i3
-    dat$epi$i.num[at] <- sum(active == 1 & status == "i")
-    dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
-    dat$epi$i1ANDi2.num[at] <- sum(active == 1 & status == "i") + sum(active == 1 & status == "i2")
-    dat$epi$i3.num <- sum(active == 1 & status == "i3")
   }
   
   dat$attr$status <- status
@@ -1206,10 +1296,11 @@ status_vector = c(rep("s",networkSize))
 status_vector[nodes_i1] = "i"
 status_vector[nodes_i2] = "i2"
 
+
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 10, nsims = 1, 
+control <- control.net(type = "SI", nsteps = 365, nsims = 10, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -1218,8 +1309,20 @@ control <- control.net(type = "SI", nsteps = 10, nsims = 1,
 sim <- netsim(est, param, init, control)
 
 ## ----ExtEx2-plot1--------------------------------------------------------
-par(mar = c(3,3,1,1), mgp = c(2,1,0))
+#par(mar = c(3,3,1,1), mgp = c(2,1,0))
 #plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2.num"), popfrac = FALSE,
 #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
-plot(sim, y = c("i.num","i2.num", "i3.num"), popfrac = FALSE,
-     mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
+#plot(sim, y = c("s.num", "i.num","i2.num", "i1ANDi2.num"), popfrac = FALSE,
+     #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
+
+simulationData <- as.data.frame(sim)
+simulationData$i.num[1] <- initAcute
+simulationData$i2.num[1] <- initStable
+simulationData$s.num[1] <- networkSize - simulationData$i2.num[1] - simulationData$i.num[1]
+simulationData <- simulationData %>% mutate("i1ANDi2.num"= i.num + i2.num)
+y_range <- range(0,max(simulationData$i1ANDi2.num)) 
+plot(simulationData$time, simulationData$i.num, type="l", col="blue", ylim=y_range)
+lines(simulationData$time, simulationData$i2.num, type="l", col="red")
+lines(simulationData$time, simulationData$i1ANDi2.num, type="l", col="black")
+#lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
+legend(70,400,c("i.num","i2.num","i1ANDi2.num","i3.num"),col=c("blue","red","black","purple"),pch=21:22,lty=1:2)
