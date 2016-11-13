@@ -1,10 +1,12 @@
 library("EpiModel")
 library("dplyr")
+library("igraph")
+library("statnet")
 
 #network statistics 
 #formation
 #number of nodes 
-networkSize <- 550
+networkSize <- 550-181
 deg0 <- 181
 deg1 <- 154
 deg2 <- 54
@@ -1240,21 +1242,37 @@ progress <- function(dat, at) {
 }
 
 ## ----ExtEx2-netest-------------------------------------------------------
-nw <- network.initialize(n=networkSize, directed = FALSE)
 
-#sets gender attribute for nodes
-nw <- set.vertex.attribute(nw, "Gender", sample(c(0,1),size=networkSize,
-                                                prob=c(1-percentMales,percentMales),replace=TRUE))
-#sets race attribute for nodes
-nw <- set.vertex.attribute(nw, "Race", sample(c(0,1),size=networkSize,
-                                              prob=c(1-percentWhite,percentWhite),replace=TRUE))
+#set degree distribution
+degreeDistribution <- c(rep_len(1,154),rep_len(2,54),rep_len(3,28),
+        rep_len(4,23),rep_len(5,15),rep_len(6,15),rep_len(7,14),
+        rep_len(8,9),rep_len(9,9),rep_len(10,10),rep_len(11,5),
+        rep_len(12,5),rep_len(13,5),rep_len(14,4),rep_len(15,1),
+        rep_len(16,3),rep_len(17,4),rep_len(19,2),rep_len(22,1), 
+        rep_len(24,1),rep_len(26,1),rep_len(28,1),rep_len(34,1),
+        rep_len(35,1),rep_len(47,1),rep_len(50,1),rep_len(55,1))
+#create graph with given degree distribution
+g <- degree.sequence.game(degreeDistribution, method="vl")
+#get adjacency matrix from graph
+adjMatrix <- as.matrix(get.adjacency(g, type="both")) 
+#convert adjacency matrix to network object
+nw <- as.network(x=adjMatrix, directed=FALSE,loops=FALSE,matrix.type="adjacency")
 
-#sets income attribute for nodes
-nw <- set.vertex.attribute(nw, "Income", sample(c(0,1),size=networkSize,
-                                                prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
-#sets incarceration attribut for nodes
-nw <- set.vertex.attribute(nw, "Incarceration", sample(c(0,1),size=networkSize,
-                                                       prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
+#nw <- network.initialize(n=networkSize, directed = FALSE)
+ 
+# #sets gender attribute for nodes
+# nw <- set.vertex.attribute(nw, "Gender", sample(c(0,1),size=networkSize,
+#                                                 prob=c(1-percentMales,percentMales),replace=TRUE))
+# #sets race attribute for nodes
+# nw <- set.vertex.attribute(nw, "Race", sample(c(0,1),size=networkSize,
+#                                               prob=c(1-percentWhite,percentWhite),replace=TRUE))
+
+# #sets income attribute for nodes
+# nw <- set.vertex.attribute(nw, "Income", sample(c(0,1),size=networkSize,
+#                                                 prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
+# #sets incarceration attribut for nodes
+# nw <- set.vertex.attribute(nw, "Incarceration", sample(c(0,1),size=networkSize,
+#                                                        prob=c(1-percentIncarcerated,percentIncarcerated),replace=TRUE))
 
 #sets prep attribute for nodes
 nw <- set.vertex.attribute(nw,"prep_status",rep_len(0,networkSize))
@@ -1264,17 +1282,17 @@ nw <- set.vertex.attribute(nw,"art_status",rep_len(0,networkSize))
 
 
 #formation formula
-formation <- ~edges + degree(c(2,3)) 
+formation <- ~edges  
 
 #target stats
-target.stats <- c(edges, c(deg2,deg3))
+target.stats <- c(edges)
 
 #edge dissolution
 #edge duration same for all partnerships
 coef.diss <- dissolution_coefs(~offset(edges), avgEdgeDuration)
 
 #fit the model 
-est <- netest(nw, formation, target.stats, coef.diss, edapprox = FALSE)
+est <- netest(nw, formation, target.stats, coef.diss, constraints = ~degrees)
 
 
 ## ----ExtEx2-params-------------------------------------------------------
