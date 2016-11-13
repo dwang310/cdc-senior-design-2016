@@ -77,7 +77,7 @@ percentIncarcerated <- 0.542
 
 #disease parameters 
 #probability of infection per transmissible act in acute phase
-acuteProb <- 0.8
+acuteProb <- 1
 #probability of infection per transmissible act in chronic phase
 stableProb <- 0.12
 #transition rate from acute to chronic 
@@ -222,7 +222,6 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         toedges <- c(toedges[2],toedges[1])
       }
       edges <- rbind(fromedges,toedges)
-      print(nrow(edges))
       if (!(is.null(edges))) {
         trans_probability_sus_i2 <- dat$param$inf.probStable
         act_rate <- dat$param$act.rate
@@ -252,7 +251,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
       dat$epi$s.num <- c(0, sum(active == 1 & status =="s"))
       dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus)
-  
+      
     }
     else {
       dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
@@ -1223,7 +1222,7 @@ progress <- function(dat, at) {
       status[ids_i1i2] <- "i2" #update the style from acute to stable
     }
   }
- 
+  
   dat$attr$status <- status
   
   if (at == 2) {
@@ -1265,20 +1264,18 @@ nw <- set.vertex.attribute(nw,"art_status",rep_len(0,networkSize))
 
 
 #formation formula
-formation <- ~edges 
+formation <- ~edges + degree(c(2,3)) 
 
 #target stats
-target.stats <- c(edges)
+target.stats <- c(edges, c(deg2,deg3))
 
 #edge dissolution
 #edge duration same for all partnerships
 coef.diss <- dissolution_coefs(~offset(edges), avgEdgeDuration)
 
 #fit the model 
-est <- netest(nw, formation, target.stats, coef.diss)
-# est <- netest(nw, formation = ~edges, target.stats = 150,
-#               coef.diss = dissolution_coefs(~offset(edges), 10))
-##Simulations for models
+est <- netest(nw, formation, target.stats, coef.diss, edapprox = FALSE)
+
 
 ## ----ExtEx2-params-------------------------------------------------------
 param <- param.net(inf.probAcute = acuteProb, inf.probStable = stableProb, 
@@ -1300,7 +1297,9 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 365, nsims = 10, 
+num_simulations = 10
+numsteps = 365
+control <- control.net(type = "SI", nsteps = numsteps, nsims = num_simulations, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -1313,16 +1312,40 @@ sim <- netsim(est, param, init, control)
 #plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2.num"), popfrac = FALSE,
 #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
 #plot(sim, y = c("s.num", "i.num","i2.num", "i1ANDi2.num"), popfrac = FALSE,
-     #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
+#mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
 
+indianaData <- read.csv("Actual Indiana Outbreak.csv")
 simulationData <- as.data.frame(sim)
 simulationData$i.num[1] <- initAcute
 simulationData$i2.num[1] <- initStable
 simulationData$s.num[1] <- networkSize - simulationData$i2.num[1] - simulationData$i.num[1]
 simulationData <- simulationData %>% mutate("i1ANDi2.num"= i.num + i2.num)
-y_range <- range(0,max(simulationData$i1ANDi2.num)) 
+y_range <- range(0,max(simulationData$i1ANDi2.num))
 plot(simulationData$time, simulationData$i.num, type="l", col="blue", ylim=y_range)
 lines(simulationData$time, simulationData$i2.num, type="l", col="red")
 lines(simulationData$time, simulationData$i1ANDi2.num, type="l", col="black")
-#lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
-legend(70,400,c("i.num","i2.num","i1ANDi2.num","i3.num"),col=c("blue","red","black","purple"),pch=21:22,lty=1:2)
+lines(seq(numsteps),indianaData[,3],type="l")
+if (whether_art ==1) {
+  lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
+  legend(100,100,c("i.num","i2.num","i1ANDi2.num","i3.num"),col=c("blue","red","black","purple"),pch=21:22,lty=1:2)
+}
+if (whether_art==0) {
+  legend(100,100,c("i.num","i2.num","i1ANDi2.num"),col=c("blue","red","black"),pch=21:22,lty=1:2)
+}
+standardDeviations <- as.data.frame(sim,out="sd")
+dfi.num <- data.frame(x=seq(numsteps),fit=simulationData$i.num,
+           lwr=simulationData$i.num-1.64*standardDeviations$i.num,
+           upr=simulationData$i.num+1.64*standardDeviations$i.num)
+dfi2.num <- data.frame(x=seq(numsteps),fit=simulationData$i2.num,
+            lwr=simulationData$i2.num-1.64*standardDeviations$i2.num,
+            upr=simulationData$i2.num+1.64*standardDeviations$i2.num)
+plot(seq(numsteps),simulationData$i.num,ylim=range(c(dfi.num$lwr,dfi.num$upr)),type="l")
+with(dfi.num,polygon(c(x,rev(x)),c(lwr,rev(upr)),col="blue",border=FALSE))
+matlines(dfi.num[,1],dfi.num[,-1],lwd=c(2,1,1),lty=1,col=c("blue","blue","blue"))
+lines(seq(numsteps),simulationData$i2.num,type="l")
+with(dfi2.num,polygon(c(x,rev(x)),c(lwr,rev(upr)),col="red",border=FALSE))
+matlines(dfi2.num[,1],dfi2.num[,-1],lwd=c(2,1,1),lty=1,col=c("red","red","red"))
+if (whether_art ==1){
+  dfi3.num <- data.frame(x=seq(numsteps),fit=simulationData$i3.num,lwr=simulationData$i3.num-1.64*standardDeviations$i3.num,upr=simulationData$i3.num+1.64*standardDeviations$i3.num)
+}
+lines(seq(numsteps),indianaData[,3],type="l")
