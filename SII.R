@@ -1313,20 +1313,28 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
     }
   }
   if (whether_sep) {
+    num_newInf1_sus <- 0 
+    num_newInf2_sus <- 0
     if (at < sep_start_time){
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
-        del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
-        if (!(is.null(del9))) {
-          del9$trans_probability_sus_i1 <- dat$param$inf.probAcute
-          del9$act_rate <- dat$param$act.rate
-          del9$final_probability_sus_i1 <- 1 - (1 - del9$trans_probability_sus_i1)^del9$act_rate #final transmission prob, using binomial prob
-          transmit_sus_i1 <- rbinom(nrow(del9),1,del9$final_probability_sus_i1) #trasmit rate is a binary variable
-          del9 <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf1_sus <- unique(del9$sus)
-          num_newInf1_sus <- length(ids_newInf1_sus)
-          if (num_newInf1_sus > 0) {
-            dat$attr$status[ids_newInf1_sus] <- "i" #status is active
-            dat$attr$infTime[ids_newInf1_sus] <- at #timestamp
+        del10 <- discord_edgelist(dat, idsInf1, ids_sus, at)
+        if (!(is.null(del10))) {
+          #num_newInf1_sus <- 0 
+          for (edge in 1:nrow(del10)){
+            trans_probability_sus_i1 <- dat$param$inf.probAcute
+            nodeDegree <- get_degree(dat$nw)[del10[edge,3]]
+            #print(paste("this is the nodedegree of inf1",nodeDegree))
+            act_rate <- dat$param$act.rate/nodeDegree
+            final_probability_sus_i1 <- 1 - (1 - trans_probability_sus_i1)^act_rate #final transmission prob, using binomial prob
+            #print(paste("this is final probability related to nElig1",final_probability_sus_i1))
+            transmit_sus_i1 <- rbinom(1,1,final_probability_sus_i1) #trasmit rate is a binary variable
+            #infections <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
+            if (transmit_sus_i1==1){
+              ids_newInf1_sus <- del10[edge,2]
+              num_newInf1_sus <- num_newInf1_sus +1
+              dat$attr$status[ids_newInf1_sus] <- "i" #status is active
+              dat$attr$infTime[ids_newInf1_sus] <- at #timestamp
+            }
           }
         }
       }
@@ -1340,76 +1348,125 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       nElig2 <- length(idsInf2)
       nElig3 <- length(idsInf3)
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
-        del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
-        if (!(is.null(del10))) {
-          del10$trans_probability_sus_i2 <- dat$param$inf.probStable
-          del10$act_rate <- dat$param$act.rate
-          del10$final_probability_sus_i2 <- 1 - (1 - del10$trans_probability_sus_i2)^del10$act_rate #final transmission prob, using binomial prob
-          transmit_sus_i2 <- rbinom(nrow(del10),1,del10$final_probability_sus_i2) #trasmit rate is a binary variable
-          del10 <- del10[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf2_sus <- unique(del10$sus)
-          num_newInf2_sus <- length(ids_newInf2_sus)
-          if (num_newInf2_sus > 0) {
+        #from sus to Inf2
+        edges <- as.matrix.network.edgelist(dat$nw)
+        edges <- edges[order(edges[,1]),]
+        indices1 <- c(0)
+        indices2 <- c(0)
+        for (ids in idsInf2) { 
+          indices1 <- c(indices1,which(edges[,1]==ids))
+          indices2 <- c(indices2,which(edges[,2]==ids))
+        }
+        indices1 <- indices1[-1]
+        indices2 <- indices2[-1]
+        fromedges <- edges[indices1,]
+        # print("fromedges at the beginning")
+        # print(fromedges)
+        if (!(is.null(nrow(fromedges)))){
+          fromsusindices <- c(0)
+          for (ids in ids_sus){
+            fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
+          }
+          fromsusindices <- fromsusindices[-1]
+          fromedges <- fromedges[fromsusindices,]
+          # print("fromedges from matrix loop ")
+          # print(fromedges)
+        }
+        if (is.vector(fromedges)){
+          fromsusindices <- c(0)
+          for (ids in ids_sus){
+            fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
+          }
+          fromsusindices <- fromsusindices[-1]
+          if (length(fromsusindices)==0){
+            fromedges <- fromedges[fromsusindices]
+          }
+          # print("fromedges from vector loop ")
+          # print(fromedges)
+        }
+        # print("from edges")
+        # print(fromedges)
+        
+        toedges <- edges[indices2,]
+        if (!(is.null(nrow(toedges)))){
+          tosusindices <- c(0)
+          for (ids in ids_sus){
+            tosusindices <- c(tosusindices,which(toedges[,1]==ids))
+          }
+          tosusindices <- tosusindices[-1]
+          toedges <- toedges[tosusindices,]
+          if(!(is.null(nrow(toedges)))){
+            toedges <- toedges[,c(2,1)]
+          }
+        }
+        if (is.vector(toedges)){
+          tosusindices <- c(0)
+          for (ids in ids_sus){
+            tosusindices <- c(tosusindices,which(toedges[1]==ids))
+          }
+          tosusindices <- tosusindices[-1]
+          if (length(tosusindices)==0){
+            tosusindices <- toedges[tosusindices]
+          } else {
+            toedges <- c(toedges[2],toedges[1])
+          }
+        }
+        edges <- rbind(fromedges,toedges)
+        
+        # print("toedges")
+        # print(toedges)
+        # print("this is from edges")
+        # print(fromedges)
+        # print("this is to edges")
+        # print(toedges)
+        # print("this is edges")
+        # print(edges)
+        # print(nrow(edges))
+        # print(is.vector(edges))
+        
+        if (!(is.null(nrow(edges))) & nrow(edges)!= 0) {
+          #num_newInf2_sus <- 0 
+          for (edge in 1:nrow(edges)){
+            trans_probability_sus_i2 <- dat$param$inf.probStable
+            nodeDegree <- get_degree(dat$nw)[edges[edge,1]]
+            act_rate <- dat$param$act.rate/nodeDegree
+            #print(paste("this is nodedegree related to inf2",nodeDegree))
+            # print("this is edges related to nElig2 matrix")
+            # print(edges)
+            # print(paste("this is edge number related to nElig2 matrix",edge))
+            # print(paste("this is edge related to nElig2 matrix",edges[edge]))
+            # print(paste("this is node related to nElig2 matrix",edges[edge,1]))
+            final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+            #print(paste("this is final probability related to nElig2 matrix",final_probability_sus_i2))
+            transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
+            if (transmit_sus_i2==1){
+              ids_newInf2_sus <- edges[edge,2]
+              num_newInf2_sus <- num_newInf2_sus + 1 
+              dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+              dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+            }
+          }
+        }
+        if (is.vector(edges)){
+          trans_probability_sus_i2 <- dat$param$inf.probStable
+          nodeDegree <- get_degree(dat$nw)[edges[1]]
+          act_rate <- dat$param$act.rate/nodeDegree
+          final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+          #print(paste("this is nodedegree for inf2",nodeDegree))
+          #print(paste("this is final probability related to nElig2 vector",final_probability_sus_i2))
+          transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
+          if (transmit_sus_i2==1){
+            ids_newInf2_sus <- edges[2]
+            num_newInf2_sus <- num_newInf2_sus + 1 
             dat$attr$status[ids_newInf2_sus] <- "i" #status is active
             dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
           }
-        }
-      } 
-      if (at == 2) { ##time starts at 2
-        dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
-        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
-        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
-        dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
-      }
-      else {
-        dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
-        dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
-        dat$epi$s.num[at] <- sum(active == 1 & status =="s")
-        dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus
-      }
-      dat$nw <- nw
-    }
-    else {
-      new_act_rate <- (sep_exchange_frequency * dat$param$act.rate * networkSize - sep_enrollment * sep_compliance)/networkSize
-      if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
-        del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
-        if (!(is.null(del9))) {
-          del9$trans_probability_sus_i1 <- dat$param$inf.probAcute
-          del9$act_rate <- new_act_rate
-          del9$final_probability_sus_i1 <- 1 - (1 - del9$trans_probability_sus_i1)^del9$act_rate #final transmission prob, using binomial prob
-          transmit_sus_i1 <- rbinom(nrow(del9),1,del9$final_probability_sus_i1) #trasmit rate is a binary variable
-          del9 <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf1_sus <- unique(del9$sus)
-          num_newInf1_sus <- length(ids_newInf1_sus)
-          if (num_newInf1_sus > 0) {
-            dat$attr$status[ids_newInf1_sus] <- "i" #status is active
-            dat$attr$infTime[ids_newInf1_sus] <- at #timestamp
-          }
-        }
-      }
-      status2 <- dat$attr$status
-      ids_sus <- which(active == 1 & status2 == "s")
-      idsInf1 <- which(active == 1 & status2 == "i")
-      idsInf2 <- which(active == 1 & status2 == "i2")
-      idsInf3 <- which(active == 1 & status2 == "i3")
-      nActive <- sum(active == 1)
-      nElig1 <- length(idsInf1)
-      nElig2 <- length(idsInf2)
-      nElig3 <- length(idsInf3)
-      if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
-        del10 <- discord_edgelist(dat, idsInf2, ids_sus, at)
-        if (!(is.null(del10))) {
-          del10$trans_probability_sus_i2 <- dat$param$inf.probStable
-          del10$act_rate <- new_act_rate
-          del10$final_probability_sus_i2 <- 1 - (1 - del10$trans_probability_sus_i2)^del10$act_rate #final transmission prob, using binomial prob
-          transmit_sus_i2 <- rbinom(nrow(del10),1,del10$final_probability_sus_i2) #trasmit rate is a binary variable
-          del10 <- del10[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
-          ids_newInf2_sus <- unique(del10$sus)
-          num_newInf2_sus <- length(ids_newInf2_sus)
-          if (num_newInf2_sus > 0) {
-            dat$attr$status[ids_newInf2_sus] <- "i" #status is active
-            dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
-          }
+          # ids_newInf2_sus <- edges[2]
+          # num_newInf2_sus <- length(ids_newInf2_sus)
+          # if (num_newInf2_sus > 0) {
+          #   dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+          #   dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
+          #   }
         }
       } 
       if (at == 2) { ##time starts at 2
