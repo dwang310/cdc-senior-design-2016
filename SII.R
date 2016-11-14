@@ -77,7 +77,7 @@ percentIncarcerated <- 0.542
 
 #disease parameters 
 #probability of infection per transmissible act in acute phase
-acuteProb <- 1
+acuteProb <- 0.8
 #probability of infection per transmissible act in chronic phase
 stableProb <- 0.12
 #transition rate from acute to chronic 
@@ -88,9 +88,9 @@ actRate <- 2
 
 #simulation parameters
 #initial number of nodes infected acute
-initAcute <- 1
+initAcute <- 0
 #initial number of nodes infected chronic
-initStable <- 0
+initStable <- 1
 
 
 #determine which intervention strategy to be implemented
@@ -161,10 +161,10 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         for (edge in 1:nrow(del9)){
           trans_probability_sus_i1 <- dat$param$inf.probAcute
           nodeDegree <- get_degree(dat$nw)[del9[edge,3]]
+          #print(paste("this is the nodedegree of inf1",nodeDegree))
           act_rate <- dat$param$act.rate/nodeDegree
           final_probability_sus_i1 <- 1 - (1 - trans_probability_sus_i1)^act_rate #final transmission prob, using binomial prob
-          print("this is nElig1 producing NA")
-          print(paste("this is final probability related to nElig1",final_probability_sus_i1))
+          #print(paste("this is final probability related to nElig1",final_probability_sus_i1))
           transmit_sus_i1 <- rbinom(1,1,final_probability_sus_i1) #trasmit rate is a binary variable
           #infections <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
           if (transmit_sus_i1==1){
@@ -249,17 +249,18 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           toedges <- c(toedges[2],toedges[1])
         }
       }
+      edges <- rbind(fromedges,toedges)
+      
       # print("toedges")
       # print(toedges)
-      print("this is from edges")
-      print(fromedges)
-      print("this is to edges")
-      print(toedges)
-      edges <- rbind(fromedges,toedges)
-      print("this is edges")
-      print(edges)
-      print(nrow(edges))
-      print(is.vector(edges))
+      # print("this is from edges")
+      # print(fromedges)
+      # print("this is to edges")
+      # print(toedges)
+      # print("this is edges")
+      # print(edges)
+      # print(nrow(edges))
+      # print(is.vector(edges))
       
       if (!(is.null(nrow(edges))) & nrow(edges)!= 0) {
         #num_newInf2_sus <- 0 
@@ -267,14 +268,14 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           trans_probability_sus_i2 <- dat$param$inf.probStable
           nodeDegree <- get_degree(dat$nw)[edges[edge,1]]
           act_rate <- dat$param$act.rate/nodeDegree
-          print("this is nElig2 Matrix producing NA")
-          print("this is edges related to nElig2 matrix")
-          print(edges)
-          print(paste("this is edge number related to nElig2 matrix",edge))
-          print(paste("this is edge related to nElig2 matrix",edges[edge]))
-          print(paste("this is node related to nElig2 matrix",edges[edge,1]))
-          print(paste("this is nodedegree related to nElig2 matrix",nodeDegree))
+          #print(paste("this is nodedegree related to inf2",nodeDegree))
+          # print("this is edges related to nElig2 matrix")
+          # print(edges)
+          # print(paste("this is edge number related to nElig2 matrix",edge))
+          # print(paste("this is edge related to nElig2 matrix",edges[edge]))
+          # print(paste("this is node related to nElig2 matrix",edges[edge,1]))
           final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+          #print(paste("this is final probability related to nElig2 matrix",final_probability_sus_i2))
           transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
           if (transmit_sus_i2==1){
             ids_newInf2_sus <- edges[edge,2]
@@ -297,8 +298,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         nodeDegree <- get_degree(dat$nw)[edges[1]]
         act_rate <- dat$param$act.rate/nodeDegree
         final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
-        print("this is nElig2 vector producing NA")
-        print(paste("this is final probability related to nElig2 vector",final_probability_sus_i2))
+        #print(paste("this is nodedegree for inf2",nodeDegree))
+        #print(paste("this is final probability related to nElig2 vector",final_probability_sus_i2))
         transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
         if (transmit_sus_i2==1){
           ids_newInf2_sus <- edges[2]
@@ -314,7 +315,6 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         #   }
       }
     }
-    
     status3 <- dat$attr$status
     ids_sus <- which(active == 1 & status3 == "s")
     idsInf1 <- which(active == 1 & status3 == "i")
@@ -1343,10 +1343,10 @@ nw <- set.vertex.attribute(nw,"art_status",rep_len(0,networkSize))
 
 
 #formation formula
-formation <- ~edges #+ degree(c(0,1,2,3))
+formation <- ~edges + degree(c(0,1,2,3))
 
 #target stats
-target.stats <- c(edges)#,c(181,154,54,28))
+target.stats <- c(edges,c(181,154,54,28))
 
 #edge dissolution
 #edge duration same for allx partnerships
@@ -1378,7 +1378,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 365, nsims = 3, 
+control <- control.net(type = "SI", nsteps = 365, nsims = 10, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
