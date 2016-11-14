@@ -83,7 +83,7 @@ stableProb <- 0.12
 #transition rate from acute to chronic 
 transitRate <- 1/21 ##12 weeks of acute phase
 #average number of transmissible acts per partnership per unit of time
-actRate <- 2/3
+actRate <- 2
 
 
 #simulation parameters
@@ -157,12 +157,14 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
     if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
       del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
       if (!(is.null(del9))) {
-        num_newInf1_sus <- 0 
+        #num_newInf1_sus <- 0 
         for (edge in 1:nrow(del9)){
           trans_probability_sus_i1 <- dat$param$inf.probAcute
           nodeDegree <- get_degree(dat$nw)[del9[edge,3]]
           act_rate <- dat$param$act.rate/nodeDegree
           final_probability_sus_i1 <- 1 - (1 - trans_probability_sus_i1)^act_rate #final transmission prob, using binomial prob
+          print("this is nElig1 producing NA")
+          print(paste("this is final probability related to nElig1",final_probability_sus_i1))
           transmit_sus_i1 <- rbinom(1,1,final_probability_sus_i1) #trasmit rate is a binary variable
           #infections <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
           if (transmit_sus_i1==1){
@@ -241,19 +243,37 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           tosusindices <- c(tosusindices,which(toedges[1]==ids))
         }
         tosusindices <- tosusindices[-1]
-        toedges <- toedges[tosusindices]
-        toedges <- c(toedges[2],toedges[1])
+        if (length(tosusindices)==0){
+          tosusindices <- toedges[tosusindices]
+        } else {
+          toedges <- c(toedges[2],toedges[1])
+        }
       }
       # print("toedges")
       # print(toedges)
+      print("this is from edges")
+      print(fromedges)
+      print("this is to edges")
+      print(toedges)
       edges <- rbind(fromedges,toedges)
+      print("this is edges")
+      print(edges)
+      print(nrow(edges))
+      print(is.vector(edges))
       
-      if (!(is.null(nrow(edges)))) {
-        num_newInf2_sus <- 0 
+      if (!(is.null(nrow(edges))) & nrow(edges)!= 0) {
+        #num_newInf2_sus <- 0 
         for (edge in 1:nrow(edges)){
           trans_probability_sus_i2 <- dat$param$inf.probStable
           nodeDegree <- get_degree(dat$nw)[edges[edge,1]]
           act_rate <- dat$param$act.rate/nodeDegree
+          print("this is nElig2 Matrix producing NA")
+          print("this is edges related to nElig2 matrix")
+          print(edges)
+          print(paste("this is edge number related to nElig2 matrix",edge))
+          print(paste("this is edge related to nElig2 matrix",edges[edge]))
+          print(paste("this is node related to nElig2 matrix",edges[edge,1]))
+          print(paste("this is nodedegree related to nElig2 matrix",nodeDegree))
           final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
           transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
           if (transmit_sus_i2==1){
@@ -277,9 +297,11 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         nodeDegree <- get_degree(dat$nw)[edges[1]]
         act_rate <- dat$param$act.rate/nodeDegree
         final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+        print("this is nElig2 vector producing NA")
+        print(paste("this is final probability related to nElig2 vector",final_probability_sus_i2))
         transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
         if (transmit_sus_i2==1){
-          ids_newInf2_sus <- edges[edge,2]
+          ids_newInf2_sus <- edges[2]
           num_newInf2_sus <- num_newInf2_sus + 1 
           dat$attr$status[ids_newInf2_sus] <- "i" #status is active
           dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
@@ -292,7 +314,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         #   }
       }
     }
-     
+    
     status3 <- dat$attr$status
     ids_sus <- which(active == 1 & status3 == "s")
     idsInf1 <- which(active == 1 & status3 == "i")
@@ -1383,4 +1405,3 @@ plot(simulationData$time, simulationData$i.num, type="l", col="blue", ylim=y_ran
 lines(simulationData$time, simulationData$i2.num, type="l", col="red")
 lines(simulationData$time, simulationData$i1ANDi2.num, type="l", col="black")
 #lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
-legend(70,400,c("i.num","i2.num","i1ANDi2.num","i3.num"),col=c("blue","red","black","purple"),pch=21:22,lty=1:2)
