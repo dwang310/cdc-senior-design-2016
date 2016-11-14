@@ -1,12 +1,10 @@
 library("EpiModel")
 library("dplyr")
-library("igraph")
-library("statnet")
 
 #network statistics 
 #formation
 #number of nodes 
-networkSize <- 550-181
+networkSize <- 50
 deg0 <- 181
 deg1 <- 154
 deg2 <- 54
@@ -36,7 +34,7 @@ deg47 <- 1
 deg50 <- 1 
 deg55 <- 1
 #calculated parameters 
-edges <- 840
+edges <- 20
 #dissolution
 #average duration of edge
 avgEdgeDuration <- 365
@@ -54,7 +52,7 @@ art_number <- 50
 #art start time days
 art_start_time <- 5 
 #art rate (number people put on art/day)
-art_rate <- 10
+art_rate <- 2
 #average frequency people exchange needles in SEP (days)
 sep_exchange_frequency <- 2
 #SEP start time days 
@@ -79,7 +77,7 @@ percentIncarcerated <- 0.542
 
 #disease parameters 
 #probability of infection per transmissible act in acute phase
-acuteProb <- 1
+acuteProb <- 0.8
 #probability of infection per transmissible act in chronic phase
 stableProb <- 0.12
 #transition rate from acute to chronic 
@@ -109,6 +107,9 @@ whether_sep = 0
 ## Change the default state in the Epimodel
 infect <- function (dat,at) {  ##dat = data, at = at timestamp
   
+  print("This is infection function")
+  print(at)
+  
   # edges2 <- as.matrix.network.edgelist(dat$nw)
   # indices1 <- c(0)
   # indices2 <- c(0)
@@ -126,7 +127,6 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   active <- dat$attr$active  #access attributes for people who are active (not dead).
   status <- dat$attr$status  #status will compartmentalize nodes in S, I1, I2, I3
   nw <- dat$nw  #network
-  art_status <- get.vertex.attribute(nw,"art_status")
   ##ids of people before intervention starts
   ids_sus <- which(active == 1 & status == "s")
   idsInf1 <- which(active == 1 & status == "i") #people who are active and status I1
@@ -134,6 +134,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   idsInf3 <- which(active == 1 & status == "i3")
   
   ##ids of people with intervention implemented
+  art_status <- get.vertex.attribute(nw,"art_status")
   ids_inf1_art <- which(active == 1 & status == "i" & art_status == 1)
   ids_inf1_noart <- which(active == 1 & status == "i" & art_status == 0)
   ids_inf2_art <- which(active == 1 & status == "i2" & art_status == 1)
@@ -145,6 +146,10 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   nElig2 <- length(idsInf2) #Number of infectious people at stable infectious phase
   nElig3 <- length(idsInf3)
   
+  print("this is status")
+  print(status)
+  print(ids_sus)
+  print(idsInf2)
   if (whether_prep==0 & whether_sep==0 & whether_art==0) {
     num_newInf1_sus <- 0 
     num_newInf2_sus <- 0
@@ -164,7 +169,9 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       }
     }
+    print("this is status 2")
     status2 <- dat$attr$status
+    print(status2)
     ids_sus <- which(active == 1 & status2 == "s")
     idsInf1 <- which(active == 1 & status2 == "i")
     idsInf2 <- which(active == 1 & status2 == "i2")
@@ -173,6 +180,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
     nElig1 <- length(idsInf1)
     nElig2 <- length(idsInf2)
     nElig3 <- length(idsInf3)
+    print(ids_sus)
+    print(idsInf2)
     if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
       #from sus to Inf2
       edges <- as.matrix.network.edgelist(dat$nw)
@@ -1205,7 +1214,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
 }
 ##----disease progression---------------------------------------------------
 progress <- function(dat, at) {
-  
+  print("progress phase")
+  print(at)
   active <- dat$attr$active
   status <- dat$attr$status
   art_status <- dat$attr$art_status
@@ -1215,6 +1225,7 @@ progress <- function(dat, at) {
   i1i2.rate <- dat$param$i1i2.rate  #inflow rate from i1 to i2
   nInf <- 0
   idsEligInf <- which(active == 1 & status == "i") #active and status of acute phase
+  print(idsEligInf)
   nEligInf <- length(idsEligInf)
   if (nEligInf > 0) {
     vec_i1i2 <- which(rbinom(nEligInf, 1, i1i2.rate) == 1) #select people moving from acute to stable phase
@@ -1242,31 +1253,15 @@ progress <- function(dat, at) {
 }
 
 ## ----ExtEx2-netest-------------------------------------------------------
+nw <- network.initialize(n=networkSize, directed = FALSE)
 
-#set degree distribution
-degreeDistribution <- c(rep_len(1,154),rep_len(2,54),rep_len(3,28),
-        rep_len(4,23),rep_len(5,15),rep_len(6,15),rep_len(7,14),
-        rep_len(8,9),rep_len(9,9),rep_len(10,10),rep_len(11,5),
-        rep_len(12,5),rep_len(13,5),rep_len(14,4),rep_len(15,1),
-        rep_len(16,3),rep_len(17,4),rep_len(19,2),rep_len(22,1), 
-        rep_len(24,1),rep_len(26,1),rep_len(28,1),rep_len(34,1),
-        rep_len(35,1),rep_len(47,1),rep_len(50,1),rep_len(55,1))
-#create graph with given degree distribution
-g <- degree.sequence.game(degreeDistribution, method="vl")
-#get adjacency matrix from graph
-adjMatrix <- as.matrix(get.adjacency(g, type="both")) 
-#convert adjacency matrix to network object
-nw <- as.network(x=adjMatrix, directed=FALSE,loops=FALSE,matrix.type="adjacency")
-
-#nw <- network.initialize(n=networkSize, directed = FALSE)
- 
 # #sets gender attribute for nodes
 # nw <- set.vertex.attribute(nw, "Gender", sample(c(0,1),size=networkSize,
 #                                                 prob=c(1-percentMales,percentMales),replace=TRUE))
 # #sets race attribute for nodes
 # nw <- set.vertex.attribute(nw, "Race", sample(c(0,1),size=networkSize,
 #                                               prob=c(1-percentWhite,percentWhite),replace=TRUE))
-
+# 
 # #sets income attribute for nodes
 # nw <- set.vertex.attribute(nw, "Income", sample(c(0,1),size=networkSize,
 #                                                 prob=c(1-percentIncome10K,percentIncome10K),replace=TRUE))
@@ -1282,18 +1277,20 @@ nw <- set.vertex.attribute(nw,"art_status",rep_len(0,networkSize))
 
 
 #formation formula
-formation <- ~edges  
+formation <- ~edges #+ degree(c(0,1,2,3,4,5))
 
 #target stats
-target.stats <- c(edges)
+target.stats <- c(20)#,c(181,154,54,28,23,15))
 
 #edge dissolution
-#edge duration same for all partnerships
+#edge duration same for allx partnerships
 coef.diss <- dissolution_coefs(~offset(edges), avgEdgeDuration)
 
 #fit the model 
-est <- netest(nw, formation, target.stats, coef.diss, constraints = ~degrees)
-
+est <- netest(nw, formation, target.stats, coef.diss)
+# est <- netest(nw, formation = ~edges, target.stats = 150,
+#               coef.diss = dissolution_coefs(~offset(edges), 10))
+##Simulations for models
 
 ## ----ExtEx2-params-------------------------------------------------------
 param <- param.net(inf.probAcute = acuteProb, inf.probStable = stableProb, 
@@ -1315,9 +1312,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-num_simulations = 10
-numsteps = 365
-control <- control.net(type = "SI", nsteps = numsteps, nsims = num_simulations, 
+control <- control.net(type = "SI", nsteps = 100, nsims = 1, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -1329,41 +1324,19 @@ sim <- netsim(est, param, init, control)
 #par(mar = c(3,3,1,1), mgp = c(2,1,0))
 #plot(sim, y = c("s.num", "i.num", "i2.num","i1ANDi2.num"), popfrac = FALSE,
 #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
+
 #plot(sim, y = c("s.num", "i.num","i2.num", "i1ANDi2.num"), popfrac = FALSE,
 #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
 
-indianaData <- read.csv("Actual Indiana Outbreak.csv")
 simulationData <- as.data.frame(sim)
 simulationData$i.num[1] <- initAcute
 simulationData$i2.num[1] <- initStable
 simulationData$s.num[1] <- networkSize - simulationData$i2.num[1] - simulationData$i.num[1]
 simulationData <- simulationData %>% mutate("i1ANDi2.num"= i.num + i2.num)
-y_range <- range(0,max(simulationData$i1ANDi2.num))
+y_range <- range(0,max(simulationData$i1ANDi2.num)) 
 plot(simulationData$time, simulationData$i.num, type="l", col="blue", ylim=y_range)
+#plot(sim,type="network")
 lines(simulationData$time, simulationData$i2.num, type="l", col="red")
 lines(simulationData$time, simulationData$i1ANDi2.num, type="l", col="black")
-lines(seq(numsteps),indianaData[,3],type="l")
-if (whether_art ==1) {
-  lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
-  legend(100,100,c("i.num","i2.num","i1ANDi2.num","i3.num"),col=c("blue","red","black","purple"),pch=21:22,lty=1:2)
-}
-if (whether_art==0) {
-  legend(100,100,c("i.num","i2.num","i1ANDi2.num"),col=c("blue","red","black"),pch=21:22,lty=1:2)
-}
-standardDeviations <- as.data.frame(sim,out="sd")
-dfi.num <- data.frame(x=seq(numsteps),fit=simulationData$i.num,
-           lwr=simulationData$i.num-1.64*standardDeviations$i.num,
-           upr=simulationData$i.num+1.64*standardDeviations$i.num)
-dfi2.num <- data.frame(x=seq(numsteps),fit=simulationData$i2.num,
-            lwr=simulationData$i2.num-1.64*standardDeviations$i2.num,
-            upr=simulationData$i2.num+1.64*standardDeviations$i2.num)
-plot(seq(numsteps),simulationData$i.num,ylim=range(c(dfi.num$lwr,dfi.num$upr)),type="l")
-with(dfi.num,polygon(c(x,rev(x)),c(lwr,rev(upr)),col="blue",border=FALSE))
-matlines(dfi.num[,1],dfi.num[,-1],lwd=c(2,1,1),lty=1,col=c("blue","blue","blue"))
-lines(seq(numsteps),simulationData$i2.num,type="l")
-with(dfi2.num,polygon(c(x,rev(x)),c(lwr,rev(upr)),col="red",border=FALSE))
-matlines(dfi2.num[,1],dfi2.num[,-1],lwd=c(2,1,1),lty=1,col=c("red","red","red"))
-if (whether_art ==1){
-  dfi3.num <- data.frame(x=seq(numsteps),fit=simulationData$i3.num,lwr=simulationData$i3.num-1.64*standardDeviations$i3.num,upr=simulationData$i3.num+1.64*standardDeviations$i3.num)
-}
-lines(seq(numsteps),indianaData[,3],type="l")
+#lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
+legend(70,400,c("i.num","i2.num","i1ANDi2.num","i3.num"),col=c("blue","red","black","purple"),pch=21:22,lty=1:2)
