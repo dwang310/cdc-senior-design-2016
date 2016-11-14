@@ -1561,3 +1561,7 @@ lines(simulationData$time, simulationData$i2.num, type="l", col="red")
 lines(simulationData$time, simulationData$i1ANDi2, type="l", col="black")
 lines(seq(1,365),actualIndiana[,3],type="l",col="purple")
 #lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
+simulationData2 <- simulationData[c(7,14,21,28,35,42,49,56,63,70,77,84,91,
+                   98,105,112,119,126,133,140,147,154,161,168,175,182,189,196,203,210,217,
+                   224,231,238,245,252,259,266,273,280,287,294,301,308,315,322,329,336,343,
+                   350,357,364),]
