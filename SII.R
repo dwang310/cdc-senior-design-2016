@@ -860,10 +860,10 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
     }
   }
   if (whether_art) {
+    num_newInf1_sus <- 0 
+    num_newInf2_sus <- 0
+    num_newInf3_sus <- 0 
     if (at < art_start_time) {
-      num_newInf1_sus <- 0 
-      num_newInf2_sus <- 0
-      num_newInf3_sus <- 0 
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
         del1 <- discord_edgelist(dat, idsInf1, ids_sus, at)
         if (!(is.null(del1))) {
@@ -994,21 +994,36 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
     else {
       num_newInf1_sus <- 0 
       num_newInf2_sus <- 0
-      num_newInf3_sus <- 0 
+      num_newInf3_sus <- 0
+      #print(at)
       if (at <= art_start_time+floor(art_number/art_rate)-1){
-        art_status <- get.vertex.attribute(nw,"art_status") 
+        art_status <- get.vertex.attribute(nw,"art_status")
         ids_old_art <- which(active == 1 & status == "i3" & art_status == 1)
+        # print("this is the ids of old people on art")
+        # print(ids_old_art)
         idsInf1AND2 <- c(idsInf1,idsInf2)
-        ids_new_art <- sample(idsInf1AND2,size = min(art_rate,length(idsInf1AND2)), replace=FALSE)
+        # print("this is the ids of infected people")
+        # print(idsInf1AND2)
+        # print("this is the number of nodes infected")
+        # print(length(idsInf1AND2))
+        if (length(idsInf1AND2) == 1) {
+          ids_new_art = idsInf1AND2
+        } else {
+          ids_new_art <- sample(idsInf1AND2,size = min(art_rate,length(idsInf1AND2)), replace=FALSE)
+        }
+        # print("this is the ids of new people on art") 
+        # print(ids_new_art)
         ids_inf_art <- c(ids_new_art,ids_old_art) 
+        # print("this is the ids of everyone on art")
+        # print(ids_inf_art)
         art_status <- set.vertex.attribute(nw,"art_status",c(1),v=ids_inf_art)
-        art_status <- get.vertex.attribute(nw,"art_status") 
+        art_status <- get.vertex.attribute(nw,"art_status")
         ids_inf_noart1 <- which(active == 1 & status == "i" & art_status == 0)
         ids_inf_noart2 <- which(active == 1 & status == "i2" & art_status == 0)
       }
       else {
         art_status <- get.vertex.attribute(nw,"art_status")
-        ids_inf_art <- which(active == 1 & status == "i3" & art_status == 1) #people who are active and status S
+        ids_inf_art <- which(active == 1 & status == "i3" & art_status == 1) #people who are active and status i3
         ids_inf_noart1 <- which(active == 1 & status == "i" & art_status == 0)
         ids_inf_noart2 <- which(active == 1 & status == "i2" & art_status == 0)
       }
