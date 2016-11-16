@@ -44,7 +44,7 @@ avgEdgeDuration <- 365
 #total number of nodes on prep
 prep_number <- 15 
 #prep start time days
-prep_start_time <- 91
+prep_start_time <-91
 #prep rate (number people put on prep/day)
 prep_rate <- 2 
 #total number of nodes on art
@@ -453,9 +453,20 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           if(transmit_sus_i2==1){
             ids_newInf2_sus <- edges[2]
             num_newInf2_sus <- num_newInf2_sus + 1 
+            dat$attr$status[ids_newInf2_sus] <- "i" #status is active
+            dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
           }
         }
       }
+      status3 <- dat$attr$status
+      ids_sus <- which(active == 1 & status3 == "s")
+      idsInf1 <- which(active == 1 & status3 == "i")
+      idsInf2 <- which(active == 1 & status3 == "i2")
+      idsInf3 <- which(active == 1 & status3 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       if (at == 2) { ##time starts at 2
         dat$epi$i.num <- c(0,sum(active == 1 & status == "i"))
         dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
@@ -577,7 +588,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             dat$attr$infTime[ids_newInf1_from_sus_prep] <- at #timestamp
           }
         }
-        
+        status4 <- dat$attr$status
+        prep_status <- get.vertex.attribute(nw,"prep_status") 
+        ids_sus_prep <- which(active == 1 & status4 == "s" & prep_status == 1)
+        ids_sus_noprep <- which(active == 1 & status4 == "s" & prep_status == 0)
+        idsInf1 <- which(active == 1 & status4 == "i")
+        idsInf2 <- which(active == 1 & status4 == "i2")
+        nActive <- sum(active == 1)
+        nElig1 <- length(idsInf1)
+        nElig2 <- length(idsInf2)
         ##acute patient with susceptible not on prep
         edges <- as.matrix.network.edgelist(dat$nw)
         edges <- edges[order(edges[,1]),]
@@ -664,7 +683,9 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
       }
       status2 <- dat$attr$status
-      ids_sus <- which(active == 1 & status2 == "s")
+      prep_status <- get.vertex.attribute(nw,"prep_status") 
+      ids_sus_prep <- which(active == 1 & status2 == "s" & prep_status == 1)
+      ids_sus_noprep <- which(active == 1 & status2 == "s" & prep_status == 0)
       idsInf1 <- which(active == 1 & status2 == "i")
       idsInf2 <- which(active == 1 & status2 == "i2")
       idsInf3 <- which(active == 1 & status2 == "i3")
@@ -758,7 +779,15 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             dat$attr$infTime[ids_newInf2_from_sus_noprep] <- at #timestamp
           }
         }
-        
+        status3 <- dat$attr$status
+        prep_status <- get.vertex.attribute(nw,"prep_status") 
+        ids_sus_prep <- which(active == 1 & status3 == "s" & prep_status == 1)
+        ids_sus_noprep <- which(active == 1 & status3 == "s" & prep_status == 0)
+        idsInf1 <- which(active == 1 & status3 == "i")
+        idsInf2 <- which(active == 1 & status3 == "i2")
+        nActive <- sum(active == 1)
+        nElig1 <- length(idsInf1)
+        nElig2 <- length(idsInf2)
         ##chronic patients with susceptible prep
         edges <- as.matrix.network.edgelist(dat$nw)
         edges <- edges[order(edges[,1]),]
@@ -844,6 +873,17 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
         }
       }
+      status3 <- dat$attr$status
+      prep_status <- get.vertex.attribute(nw,"prep_status") 
+      ids_sus_prep <- which(active == 1 & status3 == "s" & prep_status == 1)
+      ids_sus_noprep <- which(active == 1 & status3 == "s" & prep_status == 0)
+      idsInf1 <- which(active == 1 & status3 == "i")
+      idsInf2 <- which(active == 1 & status3 == "i2")
+      idsInf3 <- which(active == 1 & status3 == "i3")
+      nActive <- sum(active == 1)
+      nElig1 <- length(idsInf1)
+      nElig2 <- length(idsInf2)
+      nElig3 <- length(idsInf3)
       if (at == 2) { ##time starts at 2
         dat$epi$i.num <- c(0,sum(active == 1 & status == "i")) 
         dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
@@ -1602,7 +1642,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 365, nsims = 50, 
+control <- control.net(type = "SI", nsteps = 300, nsims = 5, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -1618,7 +1658,7 @@ sim <- netsim(est, param, init, control)
 #plot(sim, y = c("s.num", "i.num","i2.num", "i1ANDi2.num"), popfrac = FALSE,
 #mean.col = 1:4, qnts = 1, qnts.col = 1:4, leg = TRUE)
 
-actualIndiana <- read.csv("Actual Indiana Outbreak.csv")
+#actualIndiana <- read.csv("Actual Indiana Outbreak.csv")
 simulationData <- as.data.frame(sim)
 simulationData$i.num[1] <- initAcute
 simulationData$i2.num[1] <- initStable
@@ -1630,7 +1670,7 @@ plot(simulationData$time, simulationData$i.num, type="l", col="blue", ylim=y_ran
 #plot(sim,type="network")
 lines(simulationData$time, simulationData$i2.num, type="l", col="red")
 lines(simulationData$time, simulationData$i1ANDi2, type="l", col="black")
-lines(seq(1,365),actualIndiana[,3],type="l",col="purple")
+#lines(seq(1,365),actualIndiana[,3],type="l",col="purple")
 #lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
 simulationData2 <- simulationData[c(7,14,21,28,35,42,49,56,63,70,77,84,91,
                                     98,105,112,119,126,133,140,147,154,161,168,175,182,189,196,203,210,217,
