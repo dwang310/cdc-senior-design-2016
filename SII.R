@@ -44,7 +44,7 @@ avgEdgeDuration <- 365
 #total number of nodes on prep
 prep_number <- 15 
 #prep start time days
-prep_start_time <-91
+prep_start_time <- 181
 #prep rate (number people put on prep/day)
 prep_rate <- 2 
 #total number of nodes on art
@@ -154,10 +154,11 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
   if (whether_prep==0 & whether_sep==0 & whether_art==0) {
     num_newInf1_sus <- 0 
     num_newInf2_sus <- 0
+    # print(paste("this is number of infection 1 before infection starts",at,nElig1))
+    # print(paste("this is number of infection 2 before infection starts",at,nElig2))
     if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
       del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
       if (!(is.null(del9))) {
-        #num_newInf1_sus <- 0 
         for (edge in 1:nrow(del9)){
           trans_probability_sus_i1 <- dat$param$inf.probAcute
           nodeDegree <- get_degree(dat$nw)[del9[edge,3]]
@@ -219,15 +220,10 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         if (length(fromsusindices)==0){
           fromedges <- fromedges[fromsusindices]
         }
-        
-        # print("fromedges from vector loop ")
-        # print(fromedges)
       }
-      # print("from edges")
-      # print(fromedges)
-      
       toedges <- edges[indices2,]
       if (!(is.null(nrow(toedges)))){
+        #print("sus ids when toedges have multiple rows")
         tosusindices <- c(0)
         for (ids in ids_sus){
           tosusindices <- c(tosusindices,which(toedges[,1]==ids))
@@ -240,20 +236,20 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       }
       if (is.vector(toedges)){
         tosusindices <- c(0)
+        #print("sus ids when toedges is a vector")
         for (ids in ids_sus){
           tosusindices <- c(tosusindices,which(toedges[1]==ids))
         }
+        #print("this is tosusindices")
+        #print(tosusindices)
         tosusindices <- tosusindices[-1]
         if (length(tosusindices)==0){
-          tosusindices <- toedges[tosusindices]
+          toedges <- toedges[tosusindices]
         } else {
           toedges <- c(toedges[2],toedges[1])
         }
       }
       edges <- rbind(fromedges,toedges)
-      
-      # print("toedges")
-      # print(toedges)
       # print("this is from edges")
       # print(fromedges)
       # print("this is to edges")
@@ -269,14 +265,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           trans_probability_sus_i2 <- dat$param$inf.probStable
           nodeDegree <- get_degree(dat$nw)[edges[edge,1]]
           act_rate <- dat$param$act.rate/nodeDegree
-          #print(paste("this is nodedegree related to inf2",nodeDegree))
-          # print("this is edges related to nElig2 matrix")
-          # print(edges)
-          # print(paste("this is edge number related to nElig2 matrix",edge))
-          # print(paste("this is edge related to nElig2 matrix",edges[edge]))
-          # print(paste("this is node related to nElig2 matrix",edges[edge,1]))
           final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
-          #print(paste("this is final probability related to nElig2 matrix",final_probability_sus_i2))
           transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
           if (transmit_sus_i2==1){
             ids_newInf2_sus <- edges[edge,2]
@@ -285,22 +274,12 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
           }
         }
-        # edges <- edges[which(transmit_sus_i2 == 1),] #select all the nodes where transmit rate is 1
-        # if (!(is.null(nrow(edges)))) {
-        #   ids_newInf2_sus <- unique(edges[,2])
-        #   num_newInf2_sus <- length(ids_newInf2_sus)
-        #   if (num_newInf2_sus > 0) {
-        #     dat$attr$status[ids_newInf2_sus] <- "i" #status is active
-        #     dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
-        #   }
       }
       if (is.vector(edges)){
         trans_probability_sus_i2 <- dat$param$inf.probStable
         nodeDegree <- get_degree(dat$nw)[edges[1]]
         act_rate <- dat$param$act.rate/nodeDegree
         final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
-        #print(paste("this is nodedegree for inf2",nodeDegree))
-        #print(paste("this is final probability related to nElig2 vector",final_probability_sus_i2))
         transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
         if (transmit_sus_i2==1){
           ids_newInf2_sus <- edges[2]
@@ -308,12 +287,6 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           dat$attr$status[ids_newInf2_sus] <- "i" #status is active
           dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
         }
-        # ids_newInf2_sus <- edges[2]
-        # num_newInf2_sus <- length(ids_newInf2_sus)
-        # if (num_newInf2_sus > 0) {
-        #   dat$attr$status[ids_newInf2_sus] <- "i" #status is active
-        #   dat$attr$infTime[ids_newInf2_sus] <- at #timestamp
-        #   }
       }
     }
     status3 <- dat$attr$status
@@ -330,7 +303,6 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
       dat$epi$s.num <- c(0, sum(active == 1 & status =="s"))
       dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus)
-      
     }
     else {
       dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
@@ -344,18 +316,23 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
     if (at < prep_start_time) {
       num_newInf1_sus <- 0 
       num_newInf2_sus <- 0
+      # print(paste("this is number of infection 1 before infection starts",at,nElig1))
+      # print(paste("this is number of infection 2 before infection starts",at,nElig2))
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) {
-        del1 <- discord_edgelist(dat, idsInf1, ids_sus, at)
-        if (!(is.null(del1))) {
-          for (edge in 1:nrow(del1)){
+        del9 <- discord_edgelist(dat, idsInf1, ids_sus, at)
+        if (!(is.null(del9))) {
+          for (edge in 1:nrow(del9)){
             trans_probability_sus_i1 <- dat$param$inf.probAcute
-            nodeDegree <- get_degree(dat$nw)[del1[edge,3]]
+            nodeDegree <- get_degree(dat$nw)[del9[edge,3]]
+            #print(paste("this is the nodedegree of inf1",nodeDegree))
             act_rate <- dat$param$act.rate/nodeDegree
             final_probability_sus_i1 <- 1 - (1 - trans_probability_sus_i1)^act_rate #final transmission prob, using binomial prob
+            #print(paste("this is final probability related to nElig1",final_probability_sus_i1))
             transmit_sus_i1 <- rbinom(1,1,final_probability_sus_i1) #trasmit rate is a binary variable
-            if(transmit_sus_i1==1){
-              ids_newInf1_sus <- del1[edges,2]
-              num_newInf1_sus <- num_newInf1_sus+1
+            #infections <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
+            if (transmit_sus_i1==1){
+              ids_newInf1_sus <- del9[edge,2]
+              num_newInf1_sus <- num_newInf1_sus +1
               dat$attr$status[ids_newInf1_sus] <- "i" #status is active
               dat$attr$infTime[ids_newInf1_sus] <- at #timestamp
             }
@@ -372,7 +349,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       nElig2 <- length(idsInf2)
       nElig3 <- length(idsInf3)
       if (nElig2 > 0 && nElig2 < (nActive - nElig1)) {
-        #sus to Inf2
+        #from sus to Inf2
         edges <- as.matrix.network.edgelist(dat$nw)
         edges <- edges[order(edges[,1]),]
         indices1 <- c(0)
@@ -384,6 +361,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         indices1 <- indices1[-1]
         indices2 <- indices2[-1]
         fromedges <- edges[indices1,]
+        # print("fromedges at the beginning")
+        # print(fromedges)
         if (!(is.null(nrow(fromedges)))){
           fromsusindices <- c(0)
           for (ids in ids_sus){
@@ -391,6 +370,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
           fromsusindices <- fromsusindices[-1]
           fromedges <- fromedges[fromsusindices,]
+          # print("fromedges from matrix loop ")
+          # print(fromedges)
         }
         if (is.vector(fromedges)){
           fromsusindices <- c(0)
@@ -398,12 +379,13 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
-          if(length(fromsusindices)==0){
+          if (length(fromsusindices)==0){
             fromedges <- fromedges[fromsusindices]
           }
         }
         toedges <- edges[indices2,]
         if (!(is.null(nrow(toedges)))){
+          #print("sus ids when toedges have multiple rows")
           tosusindices <- c(0)
           for (ids in ids_sus){
             tosusindices <- c(tosusindices,which(toedges[,1]==ids))
@@ -416,27 +398,38 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(toedges)){
           tosusindices <- c(0)
+          #print("sus ids when toedges is a vector")
           for (ids in ids_sus){
             tosusindices <- c(tosusindices,which(toedges[1]==ids))
           }
+          #print("this is tosusindices")
+          #print(tosusindices)
           tosusindices <- tosusindices[-1]
-          if(length(tosusindices)==0){
+          if (length(tosusindices)==0){
             toedges <- toedges[tosusindices]
-          }
-          else {
+          } else {
             toedges <- c(toedges[2],toedges[1])
           }
         }
         edges <- rbind(fromedges,toedges)
+        # print("this is from edges")
+        # print(fromedges)
+        # print("this is to edges")
+        # print(toedges)
+        # print("this is edges")
+        # print(edges)
+        # print(nrow(edges))
+        # print(is.vector(edges))
         
-        if (!(is.null(edges)) & nrow(edges)!=0 & ncol(edges)!=0 ) {
-          for(edge in 1:nrow(edges)){
+        if (!(is.null(nrow(edges))) & nrow(edges)!= 0 & ncol(edges)!=0) {
+          #num_newInf2_sus <- 0 
+          for (edge in 1:nrow(edges)){
             trans_probability_sus_i2 <- dat$param$inf.probStable
             nodeDegree <- get_degree(dat$nw)[edges[edge,1]]
             act_rate <- dat$param$act.rate/nodeDegree
             final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
             transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
-            if(transmit_sus_i2==1){
+            if (transmit_sus_i2==1){
               ids_newInf2_sus <- edges[edge,2]
               num_newInf2_sus <- num_newInf2_sus + 1 
               dat$attr$status[ids_newInf2_sus] <- "i" #status is active
@@ -448,9 +441,9 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           trans_probability_sus_i2 <- dat$param$inf.probStable
           nodeDegree <- get_degree(dat$nw)[edges[1]]
           act_rate <- dat$param$act.rate/nodeDegree
-          final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate
-          transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2)
-          if(transmit_sus_i2==1){
+          final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
+          transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
+          if (transmit_sus_i2==1){
             ids_newInf2_sus <- edges[2]
             num_newInf2_sus <- num_newInf2_sus + 1 
             dat$attr$status[ids_newInf2_sus] <- "i" #status is active
@@ -468,16 +461,16 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       nElig2 <- length(idsInf2)
       nElig3 <- length(idsInf3)
       if (at == 2) { ##time starts at 2
-        dat$epi$i.num <- c(0,sum(active == 1 & status == "i"))
-        dat$epi$i2.num <- c(0,sum(active == 1 & status == "i2"))
-        dat$epi$s.num <- c(0,sum(active == 1 & status =="s"))
-        dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus) #nInf1 is acute, nInf1 is susceptible
+        dat$epi$i.num <- c(0, sum(active == 1 & status == "i"))
+        dat$epi$i2.num <- c(0, sum(active == 1 & status == "i2"))
+        dat$epi$s.num <- c(0, sum(active == 1 & status =="s"))
+        dat$epi$si.flow <- c(0, num_newInf1_sus + num_newInf2_sus)
       }
       else {
         dat$epi$i.num[at] <- sum(active == 1 & status == "i") 
         dat$epi$i2.num[at] <- sum(active == 1 & status == "i2")
         dat$epi$s.num[at] <- sum(active == 1 & status =="s")
-        dat$epi$si.flow[at] <- num_newInf1_sus + num_newInf2_sus 
+        dat$epi$si.flow[at] <- num_newInf2_sus + num_newInf1_sus
       }
       dat$nw <- nw
     }
@@ -486,18 +479,17 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       num_newInf1_from_sus_noprep <- 0
       num_newInf2_from_sus_prep <- 0 
       num_newInf2_from_sus_noprep <- 0
+      prep_status <- get.vertex.attribute(nw,"prep_status")
+      ids_sus_prep <- which(active == 1 & status == "s" & prep_status == 0)
+      ids_sus_noprep <- which(active == 1 & status == "s" & prep_status == 0)
       if (at <= prep_start_time+floor(prep_number/prep_rate)-1){
         prep_status <- get.vertex.attribute(nw,"prep_status") 
         ids_sus_old_prep <- which(active == 1 & status == "s" & prep_status == 1)
-        ids_sus_new_prep <- sample(ids_sus,size = prep_rate, replace=FALSE)
+        ids_sus_new_prep <- sample(ids_sus_noprep,size = prep_rate, replace=FALSE)
         ids_sus_prep <- c(ids_sus_new_prep,ids_sus_old_prep) 
         ids_sus_noprep <- setdiff(ids_sus,ids_sus_prep)
         prep_status <- set.vertex.attribute(nw,"prep_status",c(1),v=ids_sus_prep)
-      }
-      else {
         prep_status <- get.vertex.attribute(nw,"prep_status")
-        ids_sus_prep <- which(active == 1 & status == "s" & prep_status == 1) #people who are active and status S
-        ids_sus_noprep <- which(active == 1 & status == "s" & prep_status == 0)
       }
       ##Identify the dyads between susceptible and acute phase patients  
       if (nElig1 > 0 && nElig1 < (nActive - nElig2)) { ##if people who are in acute infectious and that is less than total active
@@ -509,7 +501,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         edges <- edges[order(edges[,1]),]
         indices1 <- c(0)
         indices2 <- c(0)
-        for (ids in ids_sus_prep) { 
+        for (ids in idsInf1) { 
           indices1 <- c(indices1,which(edges[,1]==ids))
           indices2 <- c(indices2,which(edges[,2]==ids))
         }
@@ -518,7 +510,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         fromedges <- edges[indices1,]
         if (!(is.null(nrow(fromedges)))){
           fromsusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_prep){
             fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -526,7 +518,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(fromedges)){
           fromsusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_prep){
             fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -537,7 +529,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         toedges <- edges[indices2,]
         if (!(is.null(nrow(toedges)))){
           tosusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_prep){
             tosusindices <- c(tosusindices,which(toedges[,1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -548,7 +540,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(toedges)){
           tosusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_prep){
             tosusindices <- c(tosusindices,which(toedges[1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -597,12 +589,13 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         nActive <- sum(active == 1)
         nElig1 <- length(idsInf1)
         nElig2 <- length(idsInf2)
+        
         ##acute patient with susceptible not on prep
         edges <- as.matrix.network.edgelist(dat$nw)
         edges <- edges[order(edges[,1]),]
         indices1 <- c(0)
         indices2 <- c(0)
-        for (ids in ids_sus_noprep) { 
+        for (ids in idsInf1) { 
           indices1 <- c(indices1,which(edges[,1]==ids))
           indices2 <- c(indices2,which(edges[,2]==ids))
         }
@@ -611,7 +604,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         fromedges <- edges[indices1,]
         if (!(is.null(nrow(fromedges)))){
           fromsusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_noprep){
             fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -619,7 +612,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(fromedges)){
           fromsusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_noprep){
             fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -630,7 +623,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         toedges <- edges[indices2,]
         if (!(is.null(nrow(toedges)))){
           tosusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_noprep){
             tosusindices <- c(tosusindices,which(toedges[,1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -641,7 +634,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(toedges)){
           tosusindices <- c(0)
-          for (ids in idsInf1){
+          for (ids in ids_sus_noprep){
             tosusindices <- c(tosusindices,which(toedges[1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -700,7 +693,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         edges <- edges[order(edges[,1]),]
         indices1 <- c(0)
         indices2 <- c(0)
-        for (ids in ids_sus_noprep) { 
+        for (ids in idsInf2) { 
           indices1 <- c(indices1,which(edges[,1]==ids))
           indices2 <- c(indices2,which(edges[,2]==ids))
         }
@@ -709,7 +702,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         fromedges <- edges[indices1,]
         if (!(is.null(nrow(fromedges)))){
           fromsusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_noprep){
             fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -717,7 +710,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(fromedges)){
           fromsusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_noprep){
             fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -728,7 +721,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         toedges <- edges[indices2,]
         if (!(is.null(nrow(toedges)))){
           tosusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_noprep){
             tosusindices <- c(tosusindices,which(toedges[,1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -739,7 +732,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(toedges)){
           tosusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_noprep){
             tosusindices <- c(tosusindices,which(toedges[1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -793,7 +786,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         edges <- edges[order(edges[,1]),]
         indices1 <- c(0)
         indices2 <- c(0)
-        for (ids in ids_sus_prep) { 
+        for (ids in idsInf2) { 
           indices1 <- c(indices1,which(edges[,1]==ids))
           indices2 <- c(indices2,which(edges[,2]==ids))
         }
@@ -802,7 +795,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         fromedges <- edges[indices1,]
         if (!(is.null(nrow(fromedges)))){
           fromsusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_prep){
             fromsusindices <- c(fromsusindices,which(fromedges[,2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -810,7 +803,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(fromedges)){
           fromsusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_prep){
             fromsusindices <- c(fromsusindices,which(fromedges[2]==ids))
           }
           fromsusindices <- fromsusindices[-1]
@@ -821,7 +814,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         toedges <- edges[indices2,]
         if (!(is.null(nrow(toedges)))){
           tosusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_prep){
             tosusindices <- c(tosusindices,which(toedges[,1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -832,7 +825,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
         }
         if (is.vector(toedges)){
           tosusindices <- c(0)
-          for (ids in idsInf2){
+          for (ids in ids_sus_prep){
             tosusindices <- c(tosusindices,which(toedges[1]==ids))
           }
           tosusindices <- tosusindices[-1]
@@ -1461,7 +1454,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
           }
           tosusindices <- tosusindices[-1]
           if (length(tosusindices)==0){
-            tosusindices <- toedges[tosusindices]
+            toedges <- toedges[tosusindices]
           } else {
             toedges <- c(toedges[2],toedges[1])
           }
@@ -1566,8 +1559,6 @@ progress <- function(dat, at) {
     }
   }
   
-  dat$attr$status <- status
-  
   if (at == 2) {
     dat$epi$i1i2.flow <- c(0, num_i1i2)
   }
@@ -1642,7 +1633,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 300, nsims = 5, 
+control <- control.net(type = "SI", nsteps = 365, nsims = 50, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
