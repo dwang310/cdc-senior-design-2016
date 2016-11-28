@@ -1,10 +1,12 @@
 library("EpiModel")
-#library("dplyr")
+library("dplyr")
 
 #network statistics 
+
 #formation
 #number of nodes 
 networkSize <- 550
+#degree distribution
 deg0 <- 181
 deg1 <- 154
 deg2 <- 54
@@ -33,7 +35,7 @@ deg35 <- 1
 deg47 <- 1 
 deg50 <- 1 
 deg55 <- 1
-#calculated parameters 
+#number of edges  
 edges <- 220
 #dissolution
 #average duration of edge
@@ -41,18 +43,26 @@ avgEdgeDuration <- 365
 
 
 #intervention parameters
+#budget will be changed by input from Shiny app
+budget <- 500000
+#cost of prep per person per year
+prep_cost <- 16260.23
 #total number of nodes on prep
-prep_number <- 15 
+prep_number <- floor(budget/prep_cost)
 #prep start time days
 prep_start_time <- 181
 #prep rate (number people put on prep/day)
 prep_rate <- 2 
+#cost of art per person per year
+art_cost <- 20600
 #total number of nodes on art
-art_number <- 50
+art_number <- floor(budget/art_cost)
 #art start time days
 art_start_time <- 5 
 #art rate (number people put on art/day)
 art_rate <- 2
+#cost of sep per person per year
+sep_cost <- 171
 #average frequency people exchange needles in SEP (days)
 sep_exchange_frequency <- 2
 #SEP start time days 
@@ -60,9 +70,7 @@ sep_start_time <- 50
 #SEP compliance rate 
 sep_compliance <- 0.9
 #SEP number of participants 
-sep_enrollment <- 0 
-#total number of nodes in network
-
+sep_enrollment <- floor(budget/sep_cost)
 
 #node parameters 
 #percent of nodes that are males
@@ -97,6 +105,24 @@ initStable <- 1
 whether_prep = 1
 whether_art = 0
 whether_sep = 0
+
+#total intervention cost 
+total_cost = 0 
+if (whether_prep==1) {
+  total_cost = prep_cost * prep_number
+}
+if (whether_art==1) {
+  total_cost = art_cost * art_number
+}
+if (whether_sep==1) {
+  total_cost = sep_cost * sep_enrollment
+}
+
+#QALY data 
+qaly_s = 1
+qaly_i1 = 0.74
+qaly_i2 = 0.78
+qaly_i3 = 0.78
 
 ##Disease phases (SII):
 ##"s": susceptible stage
@@ -1360,7 +1386,7 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
       dat$nw <- nw
     }
   }
-if (whether_sep) {
+  if (whether_sep) {
     num_newInf1_sus <- 0 
     num_newInf2_sus <- 0
     if (at < sep_start_time){
@@ -1770,7 +1796,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 365, nsims = 50, 
+control <- control.net(type = "SI", nsteps = 365, nsims = 1, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -1799,9 +1825,34 @@ plot(simulationData$time, simulationData$i.num, type="l", col="blue", ylim=y_ran
 lines(simulationData$time, simulationData$i2.num, type="l", col="red")
 lines(simulationData$time, simulationData$i1ANDi2, type="l", col="black")
 #lines(seq(1,365),actualIndiana[,3],type="l",col="purple")
-#lines(simulationData$time, simulationData$i3.num, type="l", col="purple")
-simulationData2 <- simulationData[c(7,14,21,28,35,42,49,56,63,70,77,84,91,
+#lines(simulationData$time, simulationData$i3.num, type="l", col="yellow")
+simulationData_by_week <- simulationData[c(7,14,21,28,35,42,49,56,63,70,77,84,91,
                                     98,105,112,119,126,133,140,147,154,161,168,175,182,189,196,203,210,217,
                                     224,231,238,245,252,259,266,273,280,287,294,301,308,315,322,329,336,343,
                                     350,357,364),]
-write.csv(simulationData2,"model output.csv")
+if (is.null(simulationData_by_week$i3.num)){
+  simulationData_by_week <- simulationData_by_week %>% mutate("QALYs"= 
+                           simulationData_by_week$s.num*qaly_s/52 + 
+                           simulationData_by_week$i.num*qaly_i1/52 +
+                           simulationData_by_week$i2.num*qaly_i2/52) 
+  simulationData_by_week <- simulationData_by_week %>% mutate("Discounted QALYs"=
+                            simulationData_by_week$QALYs/(1.03)^(simulationData_by_week$time/7 - 1))
+  total_QALYs <- sum(simulationData_by_week$`Discounted QALYs`)
+}
+if (!(is.null(simulationData_by_week$i3.num))) {
+  simulationData_by_week <- simulationData_by_week %>% mutate("QALYs"= 
+                            simulationData_by_week$s.num*qaly_s/52 + 
+                            simulationData_by_week$i.num*qaly_i1/52 +
+                            simulationData_by_week$i2.num*qaly_i2/52 + 
+                            simulationData_by_week$i3.num*qaly_i3/52)
+  simulationData_by_week <- simulationData_by_week %>% mutate("Discounted QALYs"=
+                            simulationData_by_week$QALYs/(1.03)^(simulationData_by_week$time/7 - 1))
+  total_QALYs <- sum(simulationData_by_week$`Discounted QALYs`)
+}
+final_s <- simulationData_by_week$s.num[52]
+final_i1 <- simulationData_by_week$i.num[52]
+final_i2 <- simulationData_by_week$i2.num[52]
+final_infected <- final_i1 + final_i2
+if (!(is.null(simulationData_by_week$i3.num[52]))) {
+  final_i3 <- simulationData_by_week$i3.num[52]
+  final_infected <- final_infected + final_i3
