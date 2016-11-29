@@ -1,0 +1,33 @@
+deg0 <- 181
+deg1 <- 154
+deg2 <- 54
+deg3 <- 28
+deg4 <- 23
+deg5 <- 15
+deg6 <- 15
+deg7 <- 14
+deg8 <- 9
+deg9 <- 9 
+deg10 <- 10 
+deg11 <- 5
+deg12 <- 5
+deg13 <- 5
+deg14 <- 4
+deg15 <- 1
+deg16 <- 3
+deg17 <- 4
+deg19 <- 2
+deg22 <- 1 
+deg24 <- 1 
+deg26 <- 1 
+deg28 <- 1 
+deg34 <- 1
+deg35 <- 1
+deg47 <- 1 
+deg50 <- 1 
+deg55 <- 1
+edges <- 220
+#initial number of nodes infected acute
+initAcute <- 0
+#initial number of nodes infected chronic
+initStable <- 1
