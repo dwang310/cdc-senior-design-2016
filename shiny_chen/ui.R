@@ -63,16 +63,7 @@ shinyUI(
                           tags$div(id = 'placeholder'), 
                           
                           # MORE CONDITIONAL PANELS
-                          lapply(1:6, function(i) {
-                            conditionalPanel(
-                              condition = paste0(paste0("input.dropdownM",i)," == 1"),
-                              h4(paste0("SEP Intervention Module ", i)),
-                              numericInput("sep_exchange_frequency", label = "Average frequency people exchange needles (days)", min =0, value=2),
-                              sliderInput("sep_compliance", label = "SEP Compliance Rate", min = 0, max = 1, value = 0.9),
-                              sliderInput("sep_start_time", label = "SEP Start Time (Days)", min = 0, max = 365, value=50),
-                              numericInput("sep_enrollment", label = "Number of people enrolled in SEP", min=0, value=0)
-                            )
-                          }),
+
                           
                           # OMG
                           br(),
@@ -94,14 +85,16 @@ shinyUI(
                         ), # End sidebarPanel
                         mainPanel(
                           tabsetPanel(type = 'tabs',
-                                      tabPanel("Plot Visualization", bsAlert("initAlert"),plotlyOutput("result")),
+                                      tabPanel("Plot Visualization", 
+                                               bsAlert("initAlert"),
+                                               plotlyOutput("result")),
                                       tabPanel("Network Visualization",
                                                numericInput("networkTime", "Timestep", min=1, value = 1),
                                                plotOutput("networkResult"),
                                                numericInput("networkSimSelect", "Simulation summary", min = 1, value = 1),
                                                textOutput("networkText")),
                                       tabPanel("Cost Effectiveness Results", 
-                                               plotlyOutput("ceResult"))
+                                               textOutput("totalCostTextInit"))
                                       
                           )
                         ) # End mainPanel
@@ -110,3 +103,5 @@ shinyUI(
 
              ) # End navbarPage
 ) # End shinyUi
+
+
