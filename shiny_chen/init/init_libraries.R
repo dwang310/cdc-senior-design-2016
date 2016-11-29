@@ -5,11 +5,6 @@ library(EpiModel)
 library(ggplot2)
 library(reshape2)
 library(plotly)
-# library(shinydashboard)
-
-## For installation
-pkgs <- c("readxl", "EpiModel", "ggplot2",
-              "reshape2", "plotly", "shinydashboard")
-
-# Uncomment below to install
-# install.packages(pkgs)
+library(shinythemes)
+library(shinyBS)
+library(dplyr)
