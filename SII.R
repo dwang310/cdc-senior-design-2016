@@ -44,7 +44,7 @@ avgEdgeDuration <- 365
 
 #intervention parameters
 #budget will be changed by input from Shiny app
-budget <- 500000
+budget <- 250000
 #cost of prep per person per year
 prep_cost <- 16260.23
 #total number of nodes on prep
@@ -70,7 +70,7 @@ sep_start_time <- 50
 #SEP compliance rate 
 sep_compliance <- 0.9
 #SEP number of participants 
-sep_enrollment <- floor(budget/sep_cost)
+sep_enrollment <- min(networkSize,floor(budget/sep_cost))
 
 #node parameters 
 #percent of nodes that are males
@@ -102,12 +102,15 @@ initStable <- 1
 
 
 #determine which intervention strategy to be implemented
-whether_prep = 1
+whether_prep = 0
 whether_art = 0
-whether_sep = 0
+whether_sep = 1
 
 #total intervention cost 
 total_cost = 0 
+
+#network structure recorder
+
 if (whether_prep==1) {
   total_cost = prep_cost * prep_number
 }
@@ -1403,6 +1406,8 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             #print(paste("this is final probability related to nElig1",final_probability_sus_i1))
             transmit_sus_i1 <- rbinom(1,1,final_probability_sus_i1) #trasmit rate is a binary variable
             #infections <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
+            print("this is before SEP start")
+            print(transmit_sus_i1)
             if (transmit_sus_i1==1){
               ids_newInf1_sus <- del10[edge,2]
               num_newInf1_sus <- num_newInf1_sus +1
@@ -1512,7 +1517,10 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             # print(paste("this is node related to nElig2 matrix",edges[edge,1]))
             final_probability_sus_i2 <- 1 - (1 - trans_probability_sus_i2)^act_rate #final transmission prob, using binomial prob
             #print(paste("this is final probability related to nElig2 matrix",final_probability_sus_i2))
+            print("this is before SEP start")
+            print(final_probability_sus_i2)
             transmit_sus_i2 <- rbinom(1,1,final_probability_sus_i2) #trasmit rate is a binary variable
+            print(transmit_sus_i2)
             if (transmit_sus_i2==1){
               ids_newInf2_sus <- edges[edge,2]
               num_newInf2_sus <- num_newInf2_sus + 1 
@@ -1572,6 +1580,10 @@ infect <- function (dat,at) {  ##dat = data, at = at timestamp
             #print(paste("this is final probability related to nElig1",final_probability_sus_i1))
             transmit_sus_i1 <- rbinom(1,1,final_probability_sus_i1) #trasmit rate is a binary variable
             #infections <- del9[which(transmit_sus_i1 == 1),] #select all the nodes where transmit rate is 1
+            print("this is after SEP start")
+            print(act_rate)
+            print(final_probability_sus_i1)
+            print(transmit_sus_i1)
             if (transmit_sus_i1==1){
               ids_newInf1_sus <- del11[edge,2]
               num_newInf1_sus <- num_newInf1_sus +1
@@ -1796,7 +1808,7 @@ status_vector[nodes_i2] = "i2"
 init <- init.net(status.vector = status_vector)
 
 ## ----ExtEx2-control------------------------------------------------------
-control <- control.net(type = "SI", nsteps = 365, nsims = 1, 
+control <- control.net(type = "SI", nsteps = 365, nsims = 3, 
                        infection.FUN = infect, progress.FUN = progress, 
                        recovery.FUN = NULL, skip.check = TRUE, 
                        depend = FALSE, verbose.int = 0)
@@ -1827,26 +1839,26 @@ lines(simulationData$time, simulationData$i1ANDi2, type="l", col="black")
 #lines(seq(1,365),actualIndiana[,3],type="l",col="purple")
 #lines(simulationData$time, simulationData$i3.num, type="l", col="yellow")
 simulationData_by_week <- simulationData[c(7,14,21,28,35,42,49,56,63,70,77,84,91,
-                                    98,105,112,119,126,133,140,147,154,161,168,175,182,189,196,203,210,217,
-                                    224,231,238,245,252,259,266,273,280,287,294,301,308,315,322,329,336,343,
-                                    350,357,364),]
+                                           98,105,112,119,126,133,140,147,154,161,168,175,182,189,196,203,210,217,
+                                           224,231,238,245,252,259,266,273,280,287,294,301,308,315,322,329,336,343,
+                                           350,357,364),]
 if (is.null(simulationData_by_week$i3.num)){
   simulationData_by_week <- simulationData_by_week %>% mutate("QALYs"= 
-                           simulationData_by_week$s.num*qaly_s/52 + 
-                           simulationData_by_week$i.num*qaly_i1/52 +
-                           simulationData_by_week$i2.num*qaly_i2/52) 
+                                                                simulationData_by_week$s.num*qaly_s/52 + 
+                                                                simulationData_by_week$i.num*qaly_i1/52 +
+                                                                simulationData_by_week$i2.num*qaly_i2/52) 
   simulationData_by_week <- simulationData_by_week %>% mutate("Discounted QALYs"=
-                            simulationData_by_week$QALYs/(1.03)^(simulationData_by_week$time/7 - 1))
+                                                                simulationData_by_week$QALYs/(1.03)^(simulationData_by_week$time/7 - 1))
   total_QALYs <- sum(simulationData_by_week$`Discounted QALYs`)
 }
 if (!(is.null(simulationData_by_week$i3.num))) {
   simulationData_by_week <- simulationData_by_week %>% mutate("QALYs"= 
-                            simulationData_by_week$s.num*qaly_s/52 + 
-                            simulationData_by_week$i.num*qaly_i1/52 +
-                            simulationData_by_week$i2.num*qaly_i2/52 + 
-                            simulationData_by_week$i3.num*qaly_i3/52)
+                                                                simulationData_by_week$s.num*qaly_s/52 + 
+                                                                simulationData_by_week$i.num*qaly_i1/52 +
+                                                                simulationData_by_week$i2.num*qaly_i2/52 + 
+                                                                simulationData_by_week$i3.num*qaly_i3/52)
   simulationData_by_week <- simulationData_by_week %>% mutate("Discounted QALYs"=
-                            simulationData_by_week$QALYs/(1.03)^(simulationData_by_week$time/7 - 1))
+                                                                simulationData_by_week$QALYs/(1.03)^(simulationData_by_week$time/7 - 1))
   total_QALYs <- sum(simulationData_by_week$`Discounted QALYs`)
 }
 final_s <- simulationData_by_week$s.num[52]
@@ -1856,3 +1868,4 @@ final_infected <- final_i1 + final_i2
 if (!(is.null(simulationData_by_week$i3.num[52]))) {
   final_i3 <- simulationData_by_week$i3.num[52]
   final_infected <- final_infected + final_i3
+}
