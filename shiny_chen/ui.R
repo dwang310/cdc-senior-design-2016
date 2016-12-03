@@ -18,13 +18,18 @@ shinyUI(
                           # END CONDITIONAL PANEL
                       
                           
+                          numericInput("nsims", label=h5("Number of simulations"), value=1),
+                          numericInput("nsteps", label=h5("Number of days"), min=1, value=365),
                           
                           
-                          selectInput("dropdown", label = h5("Select intervention strategy to simulate:"),
-                                      choices = list("Syringe Exchange Program" = 1,
-                                                     "Anti-Retoviral Therapy" = 2,
-                                                     "Pre-Exposure Prophylaxis" = 3,
-                                                     "No Intervention" = 4), selected = 4),
+                          div(style = "display:inline-block", selectInput("dropdown", label = h4("Intervention Strategy Module 0"), 
+                                                                          choices = list("Syringe Exchange Program" = 1, 
+                                                                                         "Anti-Retoviral Therapy" = 2, 
+                                                                                         "Pre-Exposure Prophylaxis" = 3, 
+                                                                                         "No Intervention" = 4), 
+                                                                          selected = 4)  ),
+                          div(style = "display:inline-block", actionButton("replot", label = "Run", class = "btn-primary btn-sm")),
+                          tags$style(type="text/css", paste0("#","replot" ," { width:100%; margin-bottom: 25px;}")),
                           
                           # SEP CONDITIONAL PANEL
                           conditionalPanel(
@@ -59,6 +64,7 @@ shinyUI(
                             numericInput("prep_rate", label = "Number of people put on PREP per Day", min=0,value=2)
                           ),
                           # END PREP CONDITIONAL PANEL
+                    
                           
                           tags$div(id = 'placeholder'), 
                           
@@ -68,31 +74,27 @@ shinyUI(
                           # OMG
                           br(),
                           br(),
-                          actionButton("addBtn", "Add Intervention"),
-                          actionButton("removeBtn", "Remove Intervention"),
+                          actionButton("addBtn", "Add Intervention")
+                          #actionButton("removeBtn", "Remove Intervention")
                           #actionButton("plotBtn", "Update Simulation", class = "btn-primary"),
 
                           
-                          numericInput("nsims", label=h5("Number of simulations"), value=1),
-                          numericInput("nsteps", label=h5("Number of days"), min=1, value=365),
+
                           
-                          actionButton("initstart", "INITIALIZE"),
-                          bsTooltip("initstart", "Creates an initial model with no intervention.", trigger="hover"),
                           
-                          actionButton("replot", "RUN MODEL", class = "btn-primary"),
-                          bsTooltip("replot", "Click to run the simulation and plot the output.", trigger="hover")
+                          #actionButton("replot", "RUN INITIAL MODEL", class = "btn-primary"),
+                          #bsTooltip("replot", "Click to run the simulation and plot the output.", trigger="hover")
                           
                         ), # End sidebarPanel
                         mainPanel(
                           tabsetPanel(type = 'tabs',
                                       tabPanel("Plot Visualization", 
                                                bsAlert("initAlert"),
-                                               plotlyOutput("result")),
+                                               plotlyOutput("result"),
+                                               plotlyOutput("result1")),
                                       tabPanel("Network Visualization",
                                                numericInput("networkTime", "Timestep", min=1, value = 1),
-                                               plotOutput("networkResult"),
-                                               numericInput("networkSimSelect", "Simulation summary", min = 1, value = 1),
-                                               textOutput("networkText")),
+                                               numericInput("networkSimSelect", "Simulation summary", min = 1, value = 1)),
                                       tabPanel("Cost Effectiveness Results", 
                                                textOutput("totalCostTextInit"))
                                       

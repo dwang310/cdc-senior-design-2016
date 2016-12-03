@@ -6,6 +6,3 @@ for(item in packageList){
   install.packages(item)
 }
 
-
-require(devtools)
-install_github('rCharts', 'ramnathv')

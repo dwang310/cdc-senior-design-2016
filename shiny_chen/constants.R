@@ -31,3 +31,4 @@ edges <- 220
 initAcute <- 0
 #initial number of nodes infected chronic
 initStable <- 1
+networkSize <- 550 
