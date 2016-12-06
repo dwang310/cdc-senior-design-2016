@@ -70,8 +70,7 @@ sep_start_time <- 50
 #SEP compliance rate 
 sep_compliance <- 0.9
 #SEP number of participants 
-sep_enrollment <- floor(budget/sep_cost)
-
+sep_enrollment <- min(networkSize,floor(budget/sep_cost))
 #node parameters 
 #percent of nodes that are males
 percentMales <- 0.577

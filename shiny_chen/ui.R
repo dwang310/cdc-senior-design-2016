@@ -7,6 +7,7 @@ shinyUI(
                       sidebarLayout(
                         sidebarPanel(
                           textOutput("textIntro"),
+                          useShinyjs(),
                           selectInput("radchoice", label = h5("User Type"),
                                       choices = list("Regular User" = 1, "Advanced User" = 2), selected = 1),
                           
@@ -37,8 +38,7 @@ shinyUI(
                             h4(paste0("SEP Intervention Module 0")),
                             numericInput("sep_exchange_frequency", label = "Average frequency people exchange needles (days)", min =0, value=2),
                             sliderInput("sep_compliance", label = "SEP Compliance Rate", min = 0, max = 1, value = 0.9),
-                            sliderInput("sep_start_time", label = "SEP Start Time (Days)", min = 0, max = 365, value=50),
-                            numericInput("sep_enrollment", label = "Number of people enrolled in SEP", min=0, value=0)
+                            sliderInput("sep_start_time", label = "SEP Start Time (Days)", min = 0, max = 365, value=50)
                           ),
                           # END SEP CONDITIONAL PANEL
                           
@@ -67,7 +67,6 @@ shinyUI(
                     
                           
                           tags$div(id = 'placeholder'), 
-                          
                           # MORE CONDITIONAL PANELS
 
                           
@@ -83,20 +82,22 @@ shinyUI(
                           
                           
                           #actionButton("replot", "RUN INITIAL MODEL", class = "btn-primary"),
-                          #bsTooltip("replot", "Click to run the simulation and plot the output.", trigger="hover")
                           
                         ), # End sidebarPanel
                         mainPanel(
                           tabsetPanel(type = 'tabs',
-                                      tabPanel("Plot Visualization", 
-                                               bsAlert("initAlert"),
-                                               plotlyOutput("result"),
-                                               plotlyOutput("result1")),
-                                      tabPanel("Network Visualization",
-                                               numericInput("networkTime", "Timestep", min=1, value = 1),
-                                               numericInput("networkSimSelect", "Simulation summary", min = 1, value = 1)),
-                                      tabPanel("Cost Effectiveness Results", 
-                                               textOutput("totalCostTextInit"))
+                                      tabPanel("CHART: Prevalence vs. Time",
+                                               br(),
+                                               br(),
+                                               plotlyOutput("result")),
+                                      tabPanel("CHART: Cost vs. QALY",
+                                               br(),
+                                               br(),
+                                               plotlyOutput("plotCostVal")),
+                                      tabPanel("TABLE: Simulation Statistics",
+                                               br(),
+                                               br(),
+                                               tableOutput("table"))
                                       
                           )
                         ) # End mainPanel
